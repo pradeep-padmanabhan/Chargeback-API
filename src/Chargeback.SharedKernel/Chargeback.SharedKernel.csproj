@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Deliberately dependency-free: no ASP.NET Core, EF Core, MediatR or AWS references. -->
+  <PropertyGroup>
+    <RootNamespace>Chargeback.SharedKernel</RootNamespace>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>Chargeback.Api</RootNamespace>
+    <UserSecretsId>chargeback-api-dev</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Carter" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Scalar.AspNetCore" />
+    <PackageReference Include="Serilog.AspNetCore" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Chargeback.SharedKernel\Chargeback.SharedKernel.csproj" />
+    <ProjectReference Include="..\Chargeback.Infrastructure\Chargeback.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Chargeback.UnitTests" />
+    <InternalsVisibleTo Include="Chargeback.IntegrationTests" />
+    <InternalsVisibleTo Include="Chargeback.ArchitectureTests" />
+    <InternalsVisibleTo Include="Chargeback.ContractTests" />
+  </ItemGroup>
+</Project>

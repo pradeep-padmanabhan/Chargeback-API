@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Dapper" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Chargeback.TestSupport\Chargeback.TestSupport.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The approved baseline is the only schema source; loaded into a throwaway container per run. -->
+    <None Include="..\..\docs\CHARGEBACK_DIAGRAM_BASELINE.sql" Link="Baseline\CHARGEBACK_DIAGRAM_BASELINE.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\db\migrations\*.sql" LinkBase="Migrations" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+</Project>
