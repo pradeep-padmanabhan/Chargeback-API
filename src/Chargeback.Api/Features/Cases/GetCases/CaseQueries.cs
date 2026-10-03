@@ -19,7 +19,7 @@ namespace Chargeback.Api.Features.Cases.GetCases;
 /// <summary>Analyst case list (the analyst queue is e.g. <c>status=FLAGGED</c>), filtered to the caller's bank scope.</summary>
 [RequirePermission(Permissions.ViewCases)]
 [RestrictToUserTypes(UserType.Processor, UserType.Admin)]
-public sealed record ListCasesQuery(string? Status, Guid? BankId, PageRequest Page) : IQuery<PagedResult<CaseSummaryDto>>, IScopeFilteredRequest, ISortableRequest
+public sealed record ListCasesQuery(string? Status, Guid? BankId, PageRequest Page) : IQuery<PagedResult<CaseSummaryDto>>, IScopeFilteredRequest, IPagedRequest
 {
     public static readonly SortMap Sorts = new(
         "c.id",

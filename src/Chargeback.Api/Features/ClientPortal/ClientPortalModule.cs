@@ -18,7 +18,7 @@ namespace Chargeback.Api.Features.ClientPortal;
 
 [RequirePermission(Permissions.ViewCases)]
 [RestrictToUserTypes(UserType.Bank)]
-public sealed record ListPortalCasesQuery(PageRequest Page) : IQuery<PagedResult<PortalCaseSummaryDto>>, IScopeFilteredRequest, ISortableRequest
+public sealed record ListPortalCasesQuery(PageRequest Page) : IQuery<PagedResult<PortalCaseSummaryDto>>, IScopeFilteredRequest, IPagedRequest
 {
     public static readonly SortMap Sorts = new(
         "c.id", ("createdAt", "c.created_at"), ("updatedAt", "c.updated_at"), ("caseReference", "c.case_reference"), ("status", "c.status"));

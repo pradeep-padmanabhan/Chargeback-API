@@ -67,6 +67,48 @@ public sealed class SortMapTests
         act.Should().Throw<ArgumentException>();
     }
 
+    [Theory]
+    [InlineData(0, 20, "page")]
+    [InlineData(1, 0, "pageSize")]
+    [InlineData(1, 101, "pageSize")]
+    public void Out_of_range_paging_is_a_validation_error_not_clamped(int page, int pageSize, string field)
+    {
+        var error = PagingValidation.Validate(new PageRequest(page, pageSize), Map)!;
+
+        error.Code.Should().Be("VALIDATION_FAILED");
+        error.ValidationErrors.Should().ContainKey(field);
+    }
+
+    [Fact]
+    public void All_paging_problems_are_reported_together()
+    {
+        var error = PagingValidation.Validate(new PageRequest(0, 500, sortDirection: "up"), Map)!;
+
+        error.ValidationErrors!.Keys.Should().BeEquivalentTo(["page", "pageSize", "sortDirection"]);
+    }
+
+    [Fact]
+    public void Unsupported_sort_field_takes_its_own_code()
+    {
+        PagingValidation.Validate(new PageRequest(0, 20, sortBy: "bogus"), Map)!.Code.Should().Be("INVALID_SORT_FIELD");
+    }
+
+    [Fact]
+    public void Valid_paging_passes()
+    {
+        PagingValidation.Validate(new PageRequest(2, 100, "caseReference", "asc"), Map).Should().BeNull();
+    }
+
+    [Fact]
+    public void Every_request_carrying_a_page_request_is_validated_by_the_pipeline()
+    {
+        var carriers = typeof(IPagedRequest).Assembly.GetTypes()
+            .Where(t => t.GetProperties().Any(p => p.PropertyType == typeof(PageRequest)))
+            .ToArray();
+
+        carriers.Should().NotBeEmpty().And.OnlyContain(t => typeof(IPagedRequest).IsAssignableFrom(t), "an unvalidated PageRequest could reach SQL out of range");
+    }
+
     [Fact]
     public void Every_list_endpoint_declares_created_at()
     {

@@ -51,6 +51,10 @@ internal sealed class DapperQueryService(NpgsqlDataSource dataSource, Chargeback
     {
         ArgumentNullException.ThrowIfNull(parameters);
         ArgumentNullException.ThrowIfNull(page);
+        if (!page.IsWithinBounds)
+        {
+            throw new ArgumentOutOfRangeException(nameof(page), "Unvalidated page request: out-of-range values must be rejected with 400 before querying.");
+        }
 
         return WithConnection(async (connection, transaction) =>
         {

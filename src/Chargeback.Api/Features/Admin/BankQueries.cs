@@ -16,7 +16,7 @@ namespace Chargeback.Api.Features.Admin;
 // (endpoint → MediatR pipeline → handler → PostgreSQL). No chargeback business logic.
 
 [RequirePermission(Permissions.ViewBanks)]
-public sealed record ListBanksQuery(PageRequest Page) : IQuery<PagedResult<BankDto>>, IScopeFilteredRequest, ISortableRequest
+public sealed record ListBanksQuery(PageRequest Page) : IQuery<PagedResult<BankDto>>, IScopeFilteredRequest, IPagedRequest
 {
     public static readonly SortMap Sorts = new(
         "b.id", ("createdAt", "b.created_at"), ("updatedAt", "b.updated_at"), ("bankCode", "b.bank_code"), ("bankName", "b.bank_name"), ("status", "b.status"));
@@ -29,7 +29,7 @@ public sealed record GetBankQuery(Guid BankId) : IQuery<BankDto>, IBankScopedReq
 
 /// <summary>Processor users need VIEW_BANK_USERS and an authorized scope for the bank (common guide §3).</summary>
 [RequirePermission(Permissions.ViewBankUsers)]
-public sealed record ListBankUsersQuery(Guid BankId, PageRequest Page) : IQuery<PagedResult<BankUserDto>>, IBankScopedRequest, ISortableRequest
+public sealed record ListBankUsersQuery(Guid BankId, PageRequest Page) : IQuery<PagedResult<BankUserDto>>, IBankScopedRequest, IPagedRequest
 {
     public static readonly SortMap Sorts = new(
         "u.id", ("createdAt", "u.created_at"), ("updatedAt", "u.updated_at"), ("email", "u.email"), ("fullName", "u.full_name"), ("status", "u.status"));

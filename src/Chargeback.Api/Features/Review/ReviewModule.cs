@@ -18,7 +18,7 @@ namespace Chargeback.Api.Features.Review;
 
 [RequirePermission(Permissions.ReviewCase)]
 [RestrictToUserTypes(UserType.Processor, UserType.Admin)]
-public sealed record GetReviewQueueQuery(PageRequest Page) : IQuery<PagedResult<ReviewQueueItemDto>>, IScopeFilteredRequest, ISortableRequest
+public sealed record GetReviewQueueQuery(PageRequest Page) : IQuery<PagedResult<ReviewQueueItemDto>>, IScopeFilteredRequest, IPagedRequest
 {
     /// <summary><c>createdAt</c> is the case's creation time.</summary>
     public static readonly SortMap Sorts = new(

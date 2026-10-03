@@ -62,11 +62,11 @@ public static class OpenApiConfiguration
                     switch (parameter.Name)
                     {
                         case "page":
-                            parameter.Description = "1-based page number (default 1).";
+                            parameter.Description = "1-based page number (default 1); values below 1 return 400.";
                             parameter.Schema = new OpenApiSchema { Type = "integer", Format = "int32", Minimum = 1, Default = new OpenApiInteger(1) };
                             break;
                         case "pageSize":
-                            parameter.Description = $"Items per page, 1-{PageRequest.MaxPageSize} (default {PageRequest.DefaultPageSize}); out-of-range values are clamped.";
+                            parameter.Description = $"Items per page, 1-{PageRequest.MaxPageSize} (default {PageRequest.DefaultPageSize}); out-of-range values return 400 (never clamped).";
                             parameter.Schema = new OpenApiSchema
                             {
                                 Type = "integer",

@@ -2299,7 +2299,7 @@
         "operationId": "listBanks",
         "parameters": [
           {
-            "description": "1-based page number (default 1).",
+            "description": "1-based page number (default 1); values below 1 return 400.",
             "in": "query",
             "name": "page",
             "schema": {
@@ -2310,7 +2310,7 @@
             }
           },
           {
-            "description": "Items per page, 1-100 (default 20); out-of-range values are clamped.",
+            "description": "Items per page, 1-100 (default 20); out-of-range values return 400 (never clamped).",
             "in": "query",
             "name": "pageSize",
             "schema": {
@@ -2604,7 +2604,7 @@
             }
           },
           {
-            "description": "1-based page number (default 1).",
+            "description": "1-based page number (default 1); values below 1 return 400.",
             "in": "query",
             "name": "page",
             "schema": {
@@ -2615,7 +2615,7 @@
             }
           },
           {
-            "description": "Items per page, 1-100 (default 20); out-of-range values are clamped.",
+            "description": "Items per page, 1-100 (default 20); out-of-range values return 400 (never clamped).",
             "in": "query",
             "name": "pageSize",
             "schema": {
@@ -3744,7 +3744,7 @@
             }
           },
           {
-            "description": "1-based page number (default 1).",
+            "description": "1-based page number (default 1); values below 1 return 400.",
             "in": "query",
             "name": "page",
             "schema": {
@@ -3755,7 +3755,7 @@
             }
           },
           {
-            "description": "Items per page, 1-100 (default 20); out-of-range values are clamped.",
+            "description": "Items per page, 1-100 (default 20); out-of-range values return 400 (never clamped).",
             "in": "query",
             "name": "pageSize",
             "schema": {
@@ -6382,7 +6382,7 @@
         "operationId": "listPortalCases",
         "parameters": [
           {
-            "description": "1-based page number (default 1).",
+            "description": "1-based page number (default 1); values below 1 return 400.",
             "in": "query",
             "name": "page",
             "schema": {
@@ -6393,7 +6393,7 @@
             }
           },
           {
-            "description": "Items per page, 1-100 (default 20); out-of-range values are clamped.",
+            "description": "Items per page, 1-100 (default 20); out-of-range values return 400 (never clamped).",
             "in": "query",
             "name": "pageSize",
             "schema": {
@@ -6608,7 +6608,7 @@
         "operationId": "getReviewQueue",
         "parameters": [
           {
-            "description": "1-based page number (default 1).",
+            "description": "1-based page number (default 1); values below 1 return 400.",
             "in": "query",
             "name": "page",
             "schema": {
@@ -6619,7 +6619,7 @@
             }
           },
           {
-            "description": "Items per page, 1-100 (default 20); out-of-range values are clamped.",
+            "description": "Items per page, 1-100 (default 20); out-of-range values return 400 (never clamped).",
             "in": "query",
             "name": "pageSize",
             "schema": {

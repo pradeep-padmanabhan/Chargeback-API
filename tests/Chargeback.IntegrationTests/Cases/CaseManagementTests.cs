@@ -159,7 +159,7 @@ public sealed partial class CaseManagementTests(CaseFixture fixture)
     }
 
     [Fact]
-    public async Task Case_list_pages_20_by_default_and_sorts_by_supported_fields_only()
+    public async Task Case_list_pages_20_by_default_rejects_out_of_range_paging_and_sorts_by_supported_fields_only()
     {
         var world = await World();
         for (var i = 0; i < 3; i++)
@@ -186,6 +186,13 @@ public sealed partial class CaseManagementTests(CaseFixture fixture)
         var badDirection = await client.GetAsync(url + "&sortBy=createdAt&sortDirection=up");
         badDirection.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await badDirection.Content.ReadAsStringAsync()).Should().Contain("sortDirection");
+
+        foreach (var outOfRange in new[] { "&pageSize=0", "&pageSize=101", "&page=0" })
+        {
+            var refused = await client.GetAsync(url + outOfRange);
+            refused.StatusCode.Should().Be(HttpStatusCode.BadRequest, outOfRange);
+            (await refused.Content.ReadAsStringAsync()).Should().Contain("VALIDATION_FAILED");
+        }
 
         // Stub list endpoints validate the sort contract before returning 501.
         var stub = await client.GetAsync("/api/v1/reviews/queue?sortBy=bogus");

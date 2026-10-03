@@ -6,8 +6,9 @@ public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSi
 }
 
 /// <summary>
-/// 1-based page request; page and pageSize outside the allowed range are clamped. <c>SortBy</c> / <c>SortDirection</c>
-/// are the raw client values; each list validates them against its own supported fields (null = createdAt desc).
+/// 1-based page request holding the caller's values unchanged (null page = 1, null pageSize = 20). Out-of-range values are
+/// rejected with 400 by the API pipeline, never clamped. <c>SortBy</c> / <c>SortDirection</c> are the raw client values;
+/// each list validates them against its own supported fields (null = createdAt desc).
 /// </summary>
 public sealed record PageRequest
 {
@@ -16,8 +17,8 @@ public sealed record PageRequest
 
     public PageRequest(int? page = null, int? pageSize = null, string? sortBy = null, string? sortDirection = null)
     {
-        Page = Math.Max(1, page ?? 1);
-        PageSize = Math.Clamp(pageSize ?? DefaultPageSize, 1, MaxPageSize);
+        Page = page ?? 1;
+        PageSize = pageSize ?? DefaultPageSize;
         SortBy = string.IsNullOrWhiteSpace(sortBy) ? null : sortBy.Trim();
         SortDirection = string.IsNullOrWhiteSpace(sortDirection) ? null : sortDirection.Trim();
     }
@@ -30,5 +31,8 @@ public sealed record PageRequest
 
     public string? SortDirection { get; }
 
-    public int Offset => (Page - 1) * PageSize;
+    /// <summary>page ≥ 1 and 1 ≤ pageSize ≤ <see cref="MaxPageSize"/>.</summary>
+    public bool IsWithinBounds => Page >= 1 && PageSize is >= 1 and <= MaxPageSize;
+
+    public long Offset => ((long)Page - 1) * PageSize;
 }

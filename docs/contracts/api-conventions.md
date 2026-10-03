@@ -26,13 +26,13 @@ Every failure is `application/problem+json`: `{ type, title, status, detail, cod
 The UI can hide actions with `PermissionGuard`, but the backend re-checks every call.
 
 ## CORS (browser surfaces)
-- **Allowed origins:** `Cors:AllowedOrigins` per environment. The list is empty by default, so no cross-origin access until hosting domains are approved (guide §8 #20).
+- **Allowed origins:** `Cors:AllowedOrigins` per environment. Development allows `http://localhost:5173` (Vite) and `http://localhost:3000`. The base configuration is empty, so other environments allow no cross-origin access until hosting domains are approved (guide §8 #20).
 - **Exposed response headers:** `Retry-After`, `Idempotent-Replayed`, `ETag`.
 - **Allowed request headers:** `Authorization`, `Content-Type`, `Idempotency-Key`, `If-Match`, `X-Correlation-Id`.
 - **Credentials:** not allowed (bearer tokens only). Preflight is answered without a token and cached for 10 minutes.
 
 ## Paging
-List endpoints accept `page` (1-based) and `pageSize` (1–100, default 20), and return `{ items, page, pageSize, totalCount, totalPages }`. They also accept `sortBy` (default `createdAt`) and `sortDirection` (`asc` or `desc`, case-insensitive, default `desc`). Each endpoint's supported `sortBy` values are the `sortBy` enum in `openapi-v1.json`; they are camelCase and case-sensitive. An unsupported field returns **400** `INVALID_SORT_FIELD`, and an unsupported direction returns **400** `VALIDATION_FAILED`. Every sort has a unique tie-breaker, so pages are stable. Stub list endpoints validate the sort before returning 501.
+List endpoints accept `page` (1-based, default 1) and `pageSize` (1–100, default 20), and return `{ items, page, pageSize, totalCount, totalPages }`. They also accept `sortBy` (default `createdAt`) and `sortDirection` (`asc` or `desc`, case-insensitive, default `desc`). Each endpoint's supported `sortBy` values are the `sortBy` enum in `openapi-v1.json`; they are camelCase and case-sensitive. An unsupported field returns **400** `INVALID_SORT_FIELD`. An out-of-range `page` or `pageSize`, or an unsupported direction, returns **400** `VALIDATION_FAILED`, with each problem keyed in `errors` (`page`, `pageSize`, `sortDirection`). Values are never clamped; the frontend caps `pageSize` at 100 before sending. Every sort has a unique tie-breaker, so pages are stable. Stub list endpoints validate the sort before returning 501.
 
 ## Idempotency (ADR-0106, approved)
 The following require an `Idempotency-Key` header (8–128 chars `[A-Za-z0-9._:-]`). A retry must reuse the same key. Keys are scoped to the calling user and the operation, and are kept for 90 days.

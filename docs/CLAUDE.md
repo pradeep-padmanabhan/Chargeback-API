@@ -31,8 +31,8 @@ Do these before starting new phases. Each needs tests, and OpenAPI and `docs/con
 3. ~~**Gate results route:**~~ **Done.** `GET /disputes/{disputeId}/gate-results`; `/gates` removed with no alias.
 4. ~~**Errors:**~~ **Done.** ProblemDetails carries `traceId`: the W3C trace id (`Activity.Current?.Id`), falling back to `HttpContext.TraceIdentifier`. `correlationId` is removed from error bodies; the `X-Correlation-Id` header and the outbox `correlationId` are unchanged.
 5. ~~**Re-triage guard:**~~ **Done.** `POST /cases/{id}/retriage` requires `RETRIAGE_CASE`; ADR-0124 updated.
-6. ~~**Pagination:**~~ **Done.** Default `pageSize` 20; `sortBy`/`sortDirection` on every list endpoint (`ISortableRequest` + `SortMap`, checked in `ValidationBehavior`); `400 INVALID_SORT_FIELD`; default `createdAt desc`. Open: clamp vs 400 for out-of-range `page`/`pageSize`.
-7. ~~**CORS:**~~ **Done.** `ApiCors` exposes `Retry-After`, `Idempotent-Replayed` and `ETag`, and allows `If-Match`, `Idempotency-Key` and `X-Correlation-Id`. Origins come from `Cors:AllowedOrigins` (empty until guide §8 #20 is decided).
+6. ~~**Pagination:**~~ **Done.** Default `pageSize` 20; `sortBy`/`sortDirection` on every list endpoint (`ISortableRequest` + `SortMap`, checked in `ValidationBehavior`); `400 INVALID_SORT_FIELD`; default `createdAt desc`. Out-of-range `page`/`pageSize` return 400 `VALIDATION_FAILED` (never clamped). Every request carrying a `PageRequest` must implement `IPagedRequest` (unit-tested).
+7. ~~**CORS:**~~ **Done.** `ApiCors` exposes `Retry-After`, `Idempotent-Replayed` and `ETag`, and allows `If-Match`, `Idempotency-Key` and `X-Correlation-Id`. Origins come from `Cors:AllowedOrigins`: localhost 5173/3000 in Development; production origins once guide §8 #20 is decided.
 8. **Bulk dry-run:** `POST /intake/bulk/dry-run` returns a `dryRunId` for `POST /intake/bulk`. This is blocked on the storage and retention decision (guide §8 #26); stub it and report.
 
 ## Idempotency key store (ADR-0106): implemented

@@ -55,17 +55,25 @@ public sealed class ResultTests
     }
 
     [Theory]
-    [InlineData(null, null, 1, 20)]
-    [InlineData(0, 0, 1, 1)]
-    [InlineData(3, 500, 3, 100)]
-    [InlineData(-2, 10, 1, 10)]
-    public void PageRequest_clamps_to_allowed_range(int? page, int? size, int expectedPage, int expectedSize)
+    [InlineData(null, null, 1, 20, true)]
+    [InlineData(3, 100, 3, 100, true)]
+    [InlineData(0, 20, 0, 20, false)]
+    [InlineData(1, 0, 1, 0, false)]
+    [InlineData(3, 500, 3, 500, false)]
+    [InlineData(-2, 10, -2, 10, false)]
+    public void PageRequest_keeps_the_callers_values_and_reports_bounds(int? page, int? size, int expectedPage, int expectedSize, bool withinBounds)
     {
         var request = new PageRequest(page, size);
 
-        request.Page.Should().Be(expectedPage);
+        request.Page.Should().Be(expectedPage, "values are never clamped");
         request.PageSize.Should().Be(expectedSize);
-        request.Offset.Should().Be((expectedPage - 1) * expectedSize);
+        request.IsWithinBounds.Should().Be(withinBounds);
+    }
+
+    [Fact]
+    public void PageRequest_offset_does_not_overflow()
+    {
+        new PageRequest(int.MaxValue, 100).Offset.Should().Be((int.MaxValue - 1L) * 100);
     }
 
     [Fact]

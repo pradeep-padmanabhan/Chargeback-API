@@ -8,7 +8,7 @@ using MediatR;
 namespace Chargeback.Api.Common.Behaviors;
 
 /// <summary>
-/// Pipeline step 2. Request-shape validation (FluentValidation 11, plus list sort fields) only: validators must not query
+/// Pipeline step 2. Request-shape validation (FluentValidation 11, plus list paging and sort) only: validators must not query
 /// the database, so running before authorization discloses nothing. The ten chargeback gates are
 /// business validations inside the Intake slice, not validators.
 /// </summary>
@@ -22,10 +22,11 @@ public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidat
     {
         ArgumentNullException.ThrowIfNull(next);
 
-        // Sort fields are request shape too (common guide §3.4): unsupported sortBy → 400 INVALID_SORT_FIELD.
-        if (request is ISortableRequest sortable && sortable.Sort.Validate(sortable.Page) is { } sortError)
+        // Paging is request shape too (common guide §3.4): out-of-range page/pageSize → 400 VALIDATION_FAILED,
+        // unsupported sortBy → 400 INVALID_SORT_FIELD.
+        if (request is IPagedRequest paged && PagingValidation.Validate(paged.Page, paged.Sort) is { } pagingError)
         {
-            return ResultFailure<TResponse>.Create(sortError);
+            return ResultFailure<TResponse>.Create(pagingError);
         }
 
         if (_validators.Length == 0)
