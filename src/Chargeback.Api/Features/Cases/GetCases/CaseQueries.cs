@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Chargeback.Api.Common.Messaging;
+using Chargeback.Api.Common.Paging;
 using Chargeback.Api.Common.Results;
 using Chargeback.Api.Common.Security;
 using Chargeback.Api.Features.Cases.Contracts;
@@ -18,7 +19,19 @@ namespace Chargeback.Api.Features.Cases.GetCases;
 /// <summary>Analyst case list (the analyst queue is e.g. <c>status=FLAGGED</c>), filtered to the caller's bank scope.</summary>
 [RequirePermission(Permissions.ViewCases)]
 [RestrictToUserTypes(UserType.Processor, UserType.Admin)]
-public sealed record ListCasesQuery(string? Status, Guid? BankId, PageRequest Page) : IQuery<PagedResult<CaseSummaryDto>>, IScopeFilteredRequest;
+public sealed record ListCasesQuery(string? Status, Guid? BankId, PageRequest Page) : IQuery<PagedResult<CaseSummaryDto>>, IScopeFilteredRequest, ISortableRequest
+{
+    public static readonly SortMap Sorts = new(
+        "c.id",
+        ("createdAt", "c.created_at"),
+        ("updatedAt", "c.updated_at"),
+        ("caseReference", "c.case_reference"),
+        ("status", "c.status"),
+        ("priority", "c.priority"),
+        ("filingDeadlineDate", "c.filing_deadline_date"));
+
+    public SortMap Sort => Sorts;
+}
 
 [RequirePermission(Permissions.ViewCases)]
 [RestrictToUserTypes(UserType.Processor, UserType.Admin)]
@@ -75,7 +88,7 @@ internal sealed class ListCasesHandler(IDapperQueryService db, ICurrentUser curr
             SELECT c.id, c.dispute_id, d.bank_id, c.case_reference, c.status, c.priority, c.assigned_to,
                    c.filing_deadline_date, c.created_at, c.updated_at
             {filter}
-            ORDER BY c.created_at DESC, c.id DESC
+            {request.Sort.OrderBy(request.Page)}
             LIMIT @Limit OFFSET @Offset
             """,
             parameters,

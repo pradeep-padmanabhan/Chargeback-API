@@ -39,6 +39,9 @@ public static class Errors
     public static readonly Error IdempotencyKeyRequired =
         Error.Failure("IDEMPOTENCY_KEY_REQUIRED", "A valid Idempotency-Key header is required for this operation.");
 
+    public static Error InvalidSortField(string field, IReadOnlyList<string> supported) =>
+        Error.Failure("INVALID_SORT_FIELD", $"Cannot sort by '{field}'. Supported: {string.Join(", ", supported)}.");
+
     public static Error NotImplemented(string operation) =>
         Error.NotImplemented("NOT_IMPLEMENTED", $"'{operation}' is defined by the API contract but not implemented yet.");
 }

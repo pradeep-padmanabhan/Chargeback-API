@@ -1,6 +1,7 @@
 using Carter;
 using Chargeback.Api.Common.Endpoints;
 using Chargeback.Api.Common.Messaging;
+using Chargeback.Api.Common.Paging;
 using Chargeback.Api.Common.Results;
 using Chargeback.Api.Common.Security;
 using Chargeback.Api.Features.Review.Contracts;
@@ -17,7 +18,14 @@ namespace Chargeback.Api.Features.Review;
 
 [RequirePermission(Permissions.ReviewCase)]
 [RestrictToUserTypes(UserType.Processor, UserType.Admin)]
-public sealed record GetReviewQueueQuery(PageRequest Page) : IQuery<PagedResult<ReviewQueueItemDto>>, IScopeFilteredRequest;
+public sealed record GetReviewQueueQuery(PageRequest Page) : IQuery<PagedResult<ReviewQueueItemDto>>, IScopeFilteredRequest, ISortableRequest
+{
+    /// <summary><c>createdAt</c> is the case's creation time.</summary>
+    public static readonly SortMap Sorts = new(
+        "c.id", ("createdAt", "c.created_at"), ("caseReference", "c.case_reference"), ("priority", "c.priority"), ("filingDeadlineDate", "c.filing_deadline_date"));
+
+    public SortMap Sort => Sorts;
+}
 
 [RequirePermission(Permissions.ReviewCase)]
 [RestrictToUserTypes(UserType.Processor, UserType.Admin)]
@@ -47,9 +55,10 @@ public sealed class ReviewModule : ICarterModule
     {
         var group = app.MapGroup(EndpointConventions.ApiPrefix).WithTags("Review");
 
-        group.MapGet("/reviews/queue", (int? page, int? pageSize, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new GetReviewQueueQuery(new PageRequest(page, pageSize)), http))
+        group.MapGet("/reviews/queue", (int? page, int? pageSize, string? sortBy, string? sortDirection, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new GetReviewQueueQuery(new PageRequest(page, pageSize, sortBy, sortDirection)), http))
             .WithContract<PagedResult<ReviewQueueItemDto>>("getReviewQueue", "Flagged / policy-selected cases awaiting review")
+            .WithSortFields(GetReviewQueueQuery.Sorts)
             .AsStub(StubPhase);
 
         group.MapGet("/cases/{caseId:guid}/review", (Guid caseId, ISender sender, HttpContext http) =>

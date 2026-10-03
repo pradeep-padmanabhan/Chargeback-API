@@ -1,5 +1,6 @@
 using Carter;
 using Chargeback.Api.Common.Endpoints;
+using Chargeback.Api.Common.Paging;
 using Chargeback.Api.Common.Results;
 using Chargeback.Api.Features.Admin.Contracts;
 using Chargeback.SharedKernel.Paging;
@@ -15,9 +16,10 @@ public sealed class AdminModule : ICarterModule
     {
         var admin = app.MapGroup($"{EndpointConventions.ApiPrefix}/admin").WithTags("Admin");
 
-        admin.MapGet("/banks", (int? page, int? pageSize, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new ListBanksQuery(new PageRequest(page, pageSize)), http))
-            .WithContract<PagedResult<BankDto>>("listBanks", "Banks within the caller's bank scope");
+        admin.MapGet("/banks", (int? page, int? pageSize, string? sortBy, string? sortDirection, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new ListBanksQuery(new PageRequest(page, pageSize, sortBy, sortDirection)), http))
+            .WithContract<PagedResult<BankDto>>("listBanks", "Banks within the caller's bank scope")
+            .WithSortFields(ListBanksQuery.Sorts);
 
         admin.MapGet("/banks/{bankId:guid}", (Guid bankId, ISender sender, HttpContext http) =>
                 Dispatch.Send(sender, new GetBankQuery(bankId), http))
@@ -28,9 +30,10 @@ public sealed class AdminModule : ICarterModule
             .WithContract<BankDto>("createBank", "Create a bank tenant", StatusCodes.Status201Created)
             .AsStub(StubPhase);
 
-        admin.MapGet("/banks/{bankId:guid}/users", (Guid bankId, int? page, int? pageSize, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new ListBankUsersQuery(bankId, new PageRequest(page, pageSize)), http))
-            .WithContract<PagedResult<BankUserDto>>("listBankUsers", "Users of a bank (VIEW_BANK_USERS + bank scope)");
+        admin.MapGet("/banks/{bankId:guid}/users", (Guid bankId, int? page, int? pageSize, string? sortBy, string? sortDirection, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new ListBankUsersQuery(bankId, new PageRequest(page, pageSize, sortBy, sortDirection)), http))
+            .WithContract<PagedResult<BankUserDto>>("listBankUsers", "Users of a bank (VIEW_BANK_USERS + bank scope)")
+            .WithSortFields(ListBankUsersQuery.Sorts);
 
         admin.MapPost("/banks/{bankId:guid}/users", (Guid bankId, CreateBankUserRequest body, ISender sender, HttpContext http) =>
                 Dispatch.Send(sender, new CreateBankUserCommand(bankId, body), http, dto => TypedResults.Created($"/api/v1/admin/users/{dto.Id}", dto)))

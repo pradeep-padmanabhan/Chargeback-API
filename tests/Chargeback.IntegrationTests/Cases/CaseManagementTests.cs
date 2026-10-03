@@ -158,6 +158,41 @@ public sealed partial class CaseManagementTests(CaseFixture fixture)
             .StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task Case_list_pages_20_by_default_and_sorts_by_supported_fields_only()
+    {
+        var world = await World();
+        for (var i = 0; i < 3; i++)
+        {
+            await Submit(fixture.Default, world);
+        }
+
+        await CaseFixture.DrainOutboxAsync(fixture.Default);
+        var url = $"/api/v1/cases?bankId={world.BankId}";
+
+        var byDefault = await Get<PagedResult<CaseSummaryDto>>(world.AnalystSub, url);
+        byDefault.PageSize.Should().Be(20);
+        byDefault.Items.Should().HaveCount(3).And.BeInDescendingOrder(c => c.CreatedAt);
+
+        var ascending = await Get<PagedResult<CaseSummaryDto>>(world.AnalystSub, url + "&sortBy=caseReference&sortDirection=asc");
+        ascending.Items.Select(c => c.CaseReference).Should().BeInAscendingOrder(StringComparer.Ordinal);
+        var descending = await Get<PagedResult<CaseSummaryDto>>(world.AnalystSub, url + "&sortBy=caseReference&sortDirection=DESC");
+        descending.Items.Select(c => c.CaseReference).Should().Equal(ascending.Items.Select(c => c.CaseReference).Reverse());
+
+        using var client = fixture.Default.CreateClientFor(world.AnalystSub);
+        var unsupported = await client.GetAsync(url + "&sortBy=case_reference");
+        unsupported.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await unsupported.Content.ReadAsStringAsync()).Should().Contain("INVALID_SORT_FIELD");
+        var badDirection = await client.GetAsync(url + "&sortBy=createdAt&sortDirection=up");
+        badDirection.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await badDirection.Content.ReadAsStringAsync()).Should().Contain("sortDirection");
+
+        // Stub list endpoints validate the sort contract before returning 501.
+        var stub = await client.GetAsync("/api/v1/reviews/queue?sortBy=bogus");
+        stub.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await stub.Content.ReadAsStringAsync()).Should().Contain("INVALID_SORT_FIELD");
+    }
+
     // ---- Status transitions (POST /transitions, common guide v1.4 §3.2) ----------------------------------
 
     [Fact]

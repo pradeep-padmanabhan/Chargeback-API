@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Chargeback.Api.Common.Http;
 using Chargeback.Api.Common.Results;
 using Chargeback.SharedKernel.Results;
@@ -22,18 +23,29 @@ public sealed class ResultHttpMapperTests
     }
 
     [Fact]
-    public void Problem_carries_code_and_trace_id()
+    public void Problem_carries_code_and_w3c_trace_id_not_the_correlation_id()
     {
         var http = new DefaultHttpContext();
         CorrelationId.Set(http, "corr-123");
+        using var activity = new Activity("test").SetIdFormat(ActivityIdFormat.W3C).Start();
 
         var result = ResultHttpMapper.ToProblem(Errors.ResourceNotFound, http);
 
         var problem = result.Should().BeOfType<ProblemHttpResult>().Subject.ProblemDetails;
         problem.Status.Should().Be(404);
         problem.Extensions["code"].Should().Be("RESOURCE_NOT_FOUND");
-        problem.Extensions["traceId"].Should().Be("corr-123");
+        problem.Extensions["traceId"].Should().Be(activity.Id);
+        ((string)problem.Extensions["traceId"]!).Should().MatchRegex("^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$");
         problem.Extensions.Should().NotContainKey("correlationId");
+    }
+
+    [Fact]
+    public void Trace_id_falls_back_to_the_request_identifier_without_an_activity()
+    {
+        var http = new DefaultHttpContext { TraceIdentifier = "0HN-req-1" };
+        Activity.Current = null;
+
+        ResultHttpMapper.TraceIdFor(http).Should().Be("0HN-req-1");
     }
 
     [Fact]

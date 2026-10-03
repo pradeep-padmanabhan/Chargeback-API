@@ -1,6 +1,7 @@
 using Carter;
 using Chargeback.Api.Common.Endpoints;
 using Chargeback.Api.Common.Messaging;
+using Chargeback.Api.Common.Paging;
 using Chargeback.Api.Common.Results;
 using Chargeback.Api.Common.Security;
 using Chargeback.Api.Features.ClientPortal.Contracts;
@@ -17,7 +18,13 @@ namespace Chargeback.Api.Features.ClientPortal;
 
 [RequirePermission(Permissions.ViewCases)]
 [RestrictToUserTypes(UserType.Bank)]
-public sealed record ListPortalCasesQuery(PageRequest Page) : IQuery<PagedResult<PortalCaseSummaryDto>>, IScopeFilteredRequest;
+public sealed record ListPortalCasesQuery(PageRequest Page) : IQuery<PagedResult<PortalCaseSummaryDto>>, IScopeFilteredRequest, ISortableRequest
+{
+    public static readonly SortMap Sorts = new(
+        "c.id", ("createdAt", "c.created_at"), ("updatedAt", "c.updated_at"), ("caseReference", "c.case_reference"), ("status", "c.status"));
+
+    public SortMap Sort => Sorts;
+}
 
 [RequirePermission(Permissions.ViewCases)]
 [RestrictToUserTypes(UserType.Bank)]
@@ -56,9 +63,10 @@ public sealed class ClientPortalModule : ICarterModule
     {
         var portal = app.MapGroup($"{EndpointConventions.ApiPrefix}/portal").WithTags("ClientPortal");
 
-        portal.MapGet("/cases", (int? page, int? pageSize, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new ListPortalCasesQuery(new PageRequest(page, pageSize)), http))
+        portal.MapGet("/cases", (int? page, int? pageSize, string? sortBy, string? sortDirection, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new ListPortalCasesQuery(new PageRequest(page, pageSize, sortBy, sortDirection)), http))
             .WithContract<PagedResult<PortalCaseSummaryDto>>("listPortalCases", "Own bank's cases (bank users)")
+            .WithSortFields(ListPortalCasesQuery.Sorts)
             .AsStub(StubPhase);
 
         portal.MapGet("/cases/{caseId:guid}", (Guid caseId, ISender sender, HttpContext http) =>

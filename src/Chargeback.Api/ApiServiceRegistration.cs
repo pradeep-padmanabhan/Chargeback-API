@@ -54,8 +54,8 @@ public static class ApiServiceRegistration
     {
         services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
         {
-            // Approved contract: traceId is the request correlation id (also X-Correlation-Id). Overwrites the framework default.
-            context.ProblemDetails.Extensions[ResultHttpMapper.TraceIdField] = CorrelationId.Get(context.HttpContext);
+            // Approved contract: one traceId (W3C when tracing is active). Overwrites the framework default so all errors agree.
+            context.ProblemDetails.Extensions[ResultHttpMapper.TraceIdField] = ResultHttpMapper.TraceIdFor(context.HttpContext);
         });
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Chargeback.Api.Common.Http;
 using Chargeback.SharedKernel.Results;
 using MediatR;
@@ -23,8 +24,18 @@ public static class ResultHttpMapper
         _ => StatusCodes.Status500InternalServerError,
     };
 
-    /// <summary>ProblemDetails extension carrying the request correlation id (approved contract, common guide §3.4).</summary>
+    /// <summary>ProblemDetails extension carrying the trace id (approved contract, common guide §3.4).</summary>
     public const string TraceIdField = "traceId";
+
+    /// <summary>
+    /// W3C trace id (<c>00-{trace}-{span}-{flags}</c>) when an Activity is running (OpenTelemetry, X-Ray), otherwise the
+    /// ASP.NET request identifier. Distinct from <c>X-Correlation-Id</c>, which keeps its own header and log property.
+    /// </summary>
+    public static string TraceIdFor(HttpContext httpContext)
+    {
+        ArgumentNullException.ThrowIfNull(httpContext);
+        return Activity.Current?.Id ?? httpContext.TraceIdentifier;
+    }
 
     public static IResult ToProblem(Error error, HttpContext httpContext)
     {
@@ -34,7 +45,7 @@ public static class ResultHttpMapper
         var extensions = new Dictionary<string, object?>
         {
             ["code"] = error.Code,
-            [TraceIdField] = CorrelationId.Get(httpContext),
+            [TraceIdField] = TraceIdFor(httpContext),
         };
 
         if (error.Type == ErrorType.Validation && error.ValidationErrors is { } errors)

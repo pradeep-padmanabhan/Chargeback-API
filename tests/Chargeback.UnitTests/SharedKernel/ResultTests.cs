@@ -55,7 +55,7 @@ public sealed class ResultTests
     }
 
     [Theory]
-    [InlineData(null, null, 1, 25)]
+    [InlineData(null, null, 1, 20)]
     [InlineData(0, 0, 1, 1)]
     [InlineData(3, 500, 3, 100)]
     [InlineData(-2, 10, 1, 10)]

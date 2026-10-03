@@ -1,6 +1,7 @@
 using Carter;
 using Chargeback.Api.Common.Endpoints;
 using Chargeback.Api.Common.Http;
+using Chargeback.Api.Common.Paging;
 using Chargeback.Api.Common.Results;
 using Chargeback.Api.Features.Cases.ChangeCase;
 using Chargeback.Api.Features.Cases.Contracts;
@@ -28,9 +29,10 @@ public sealed class CasesModule : ICarterModule
     {
         var group = app.MapGroup($"{EndpointConventions.ApiPrefix}/cases").WithTags("Case");
 
-        group.MapGet("/", (string? status, Guid? bankId, int? page, int? pageSize, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new ListCasesQuery(status, bankId, new PageRequest(page, pageSize)), http))
-            .WithContract<PagedResult<CaseSummaryDto>>("listCases", "Cases within the caller's bank scope (analyst queue: status=FLAGGED)");
+        group.MapGet("/", (string? status, Guid? bankId, int? page, int? pageSize, string? sortBy, string? sortDirection, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new ListCasesQuery(status, bankId, new PageRequest(page, pageSize, sortBy, sortDirection)), http))
+            .WithContract<PagedResult<CaseSummaryDto>>("listCases", "Cases within the caller's bank scope (analyst queue: status=FLAGGED)")
+            .WithSortFields(ListCasesQuery.Sorts);
 
         group.MapGet("/{caseId:guid}", (Guid caseId, ISender sender, HttpContext http) =>
                 Dispatch.Send(sender, new GetCaseQuery(caseId), http, dto =>

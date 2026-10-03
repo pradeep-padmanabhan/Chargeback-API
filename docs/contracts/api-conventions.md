@@ -6,14 +6,14 @@ The machine-readable contract is [`openapi-v1.json`](openapi-v1.json) (OpenAPI 3
 - Base path `/api/v1`. JSON uses camelCase, and enums are serialized as strings.
 - Authentication: `Authorization: Bearer <Cognito access token>`. There is one user pool, and only the access tokens of the Analyst and Client portal app clients are accepted.
 - Everything else about the caller (user type, role, permissions, bank scope) comes from the database. `GET /api/v1/me` returns it for the frontend `authStore`.
-- `X-Correlation-Id` (optional, 1–64 chars `[A-Za-z0-9._-]`) is echoed back on every response and appears in logs and, as `traceId`, in error bodies.
+- `X-Correlation-Id` (optional, 1–64 chars `[A-Za-z0-9._-]`) is echoed back on every response and appears in logs. It is separate from the error body's `traceId`.
 
 ## Errors (RFC 9457 problem details)
-Every failure is `application/problem+json`: `{ type, title, status, detail, code, errors?, traceId }`. `code` is stable and machine-readable; `traceId` equals the request's `X-Correlation-Id`. There is no `correlationId` field.
+Every failure is `application/problem+json`: `{ type, title, status, detail, code, errors?, traceId }`. `code` is stable and machine-readable. `traceId` is the W3C trace id (`00-{trace-id}-{span-id}-{flags}`) when distributed tracing is active (OpenTelemetry, X-Ray), otherwise the server's request identifier. There is no `correlationId` field.
 
 | Status | Typical `code` | Meaning |
 |---|---|---|
-| 400 | `VALIDATION_FAILED` (with `errors`), `IDEMPOTENCY_KEY_REQUIRED` | Malformed request |
+| 400 | `VALIDATION_FAILED` (with `errors`), `IDEMPOTENCY_KEY_REQUIRED`, `INVALID_SORT_FIELD` | Malformed request |
 | 401 | — | Missing or invalid token |
 | 403 | `USER_NOT_PROVISIONED`, `USER_NOT_ACTIVE`, `USER_ROLE_MISMATCH`, `USER_TYPE_NOT_ALLOWED`, `PERMISSION_DENIED` | Authenticated but not allowed |
 | 404 | `RESOURCE_NOT_FOUND` | Missing **or outside your bank scope** (deliberately indistinguishable) |
@@ -26,7 +26,7 @@ Every failure is `application/problem+json`: `{ type, title, status, detail, cod
 The UI can hide actions with `PermissionGuard`, but the backend re-checks every call.
 
 ## Paging
-List endpoints accept `page` (1-based) and `pageSize` (1–100, default 25), and return `{ items, page, pageSize, totalCount, totalPages }`.
+List endpoints accept `page` (1-based) and `pageSize` (1–100, default 20), and return `{ items, page, pageSize, totalCount, totalPages }`. They also accept `sortBy` (default `createdAt`) and `sortDirection` (`asc` or `desc`, case-insensitive, default `desc`). Each endpoint's supported `sortBy` values are the `sortBy` enum in `openapi-v1.json`; they are camelCase and case-sensitive. An unsupported field returns **400** `INVALID_SORT_FIELD`, and an unsupported direction returns **400** `VALIDATION_FAILED`. Every sort has a unique tie-breaker, so pages are stable. Stub list endpoints validate the sort before returning 501.
 
 ## Idempotency (ADR-0106, approved)
 The following require an `Idempotency-Key` header (8–128 chars `[A-Za-z0-9._:-]`). A retry must reuse the same key. Keys are scoped to the calling user and the operation, and are kept for 90 days.
@@ -152,7 +152,7 @@ Approved values: `NEW`, `FLAGGED`, `UNDER_REVIEW`, `APPROVED`, `REJECTED`, `FILE
 
 | Endpoint | Permission | Notes |
 |---|---|---|
-| `GET /cases?status&bankId&page&pageSize` | `VIEW_CASES` | Scope-filtered; `daysRemaining` is server-computed (null until the calendar is approved) |
+| `GET /cases?status&bankId&page&pageSize&sortBy&sortDirection` | `VIEW_CASES` | Scope-filtered; `daysRemaining` is server-computed (null until the calendar is approved) |
 | `GET /cases/{id}` | `VIEW_CASES` | Returns the ETag, the derived reason code (deterministic rules only) and `validActions` |
 | `GET /cases/{id}/timeline` | `VIEW_CASES` | The append-only case events, oldest first. Internal: analysts only |
 | `POST /cases/{id}/transitions` body `{action, rationale, expectedVersion}` | `UPDATE_CASE_STATUS` | `Idempotency-Key` required (ADR-0106; replays return `Idempotent-Replayed: true`). See the action table above. There is no `PATCH /status` |

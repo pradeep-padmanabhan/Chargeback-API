@@ -29,9 +29,9 @@ Do these before starting new phases. Each needs tests, and OpenAPI and `docs/con
 1. ~~**Permissions constants:**~~ **Done.** `RetriageCase` added; `ViewTriage` and `RetriageCase` are in `Permissions.Seeded`, and the full suite is green. Still to do: a `Migration_0005` idempotency and matrix test (20 rows, no bank scopes), and updates to ADR-0111.
 2. ~~**Transitions:**~~ **Done.** `POST /cases/{id}/transitions` with `validActions`, `422 INVALID_TRANSITION` and `expectedVersion` (409 when stale); `PATCH /status` removed; ADR-0110 updated. `FLAG`/`UNFLAG` stay refused until their transitions are approved.
 3. ~~**Gate results route:**~~ **Done.** `GET /disputes/{disputeId}/gate-results`; `/gates` removed with no alias.
-4. ~~**Errors:**~~ **Done.** ProblemDetails carries `traceId` (the request's `X-Correlation-Id`); `correlationId` removed from error bodies.
+4. ~~**Errors:**~~ **Done.** ProblemDetails carries `traceId`: the W3C trace id (`Activity.Current?.Id`), falling back to `HttpContext.TraceIdentifier`. `correlationId` is removed from error bodies; the `X-Correlation-Id` header and the outbox `correlationId` are unchanged.
 5. ~~**Re-triage guard:**~~ **Done.** `POST /cases/{id}/retriage` requires `RETRIAGE_CASE`; ADR-0124 updated.
-6. **Pagination:** default `pageSize` 20; `sortBy` and `sortDirection`; `400 INVALID_SORT_FIELD`; default sort `createdAt desc`.
+6. ~~**Pagination:**~~ **Done.** Default `pageSize` 20; `sortBy`/`sortDirection` on every list endpoint (`ISortableRequest` + `SortMap`, checked in `ValidationBehavior`); `400 INVALID_SORT_FIELD`; default `createdAt desc`. Open: clamp vs 400 for out-of-range `page`/`pageSize`.
 7. **CORS:** expose `Retry-After`, `Idempotent-Replayed` and `ETag`.
 8. **Bulk dry-run:** `POST /intake/bulk/dry-run` returns a `dryRunId` for `POST /intake/bulk`. This is blocked on the storage and retention decision (guide §8 #26); stub it and report.
 

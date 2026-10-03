@@ -1,4 +1,5 @@
 using Chargeback.Api.Common.Messaging;
+using Chargeback.Api.Common.Paging;
 using Chargeback.Api.Common.Results;
 using Chargeback.Api.Common.Security;
 using Chargeback.Api.Features.Admin.Contracts;
@@ -15,14 +16,26 @@ namespace Chargeback.Api.Features.Admin;
 // (endpoint → MediatR pipeline → handler → PostgreSQL). No chargeback business logic.
 
 [RequirePermission(Permissions.ViewBanks)]
-public sealed record ListBanksQuery(PageRequest Page) : IQuery<PagedResult<BankDto>>, IScopeFilteredRequest;
+public sealed record ListBanksQuery(PageRequest Page) : IQuery<PagedResult<BankDto>>, IScopeFilteredRequest, ISortableRequest
+{
+    public static readonly SortMap Sorts = new(
+        "b.id", ("createdAt", "b.created_at"), ("updatedAt", "b.updated_at"), ("bankCode", "b.bank_code"), ("bankName", "b.bank_name"), ("status", "b.status"));
+
+    public SortMap Sort => Sorts;
+}
 
 [RequirePermission(Permissions.ViewBanks)]
 public sealed record GetBankQuery(Guid BankId) : IQuery<BankDto>, IBankScopedRequest;
 
 /// <summary>Processor users need VIEW_BANK_USERS and an authorized scope for the bank (common guide §3).</summary>
 [RequirePermission(Permissions.ViewBankUsers)]
-public sealed record ListBankUsersQuery(Guid BankId, PageRequest Page) : IQuery<PagedResult<BankUserDto>>, IBankScopedRequest;
+public sealed record ListBankUsersQuery(Guid BankId, PageRequest Page) : IQuery<PagedResult<BankUserDto>>, IBankScopedRequest, ISortableRequest
+{
+    public static readonly SortMap Sorts = new(
+        "u.id", ("createdAt", "u.created_at"), ("updatedAt", "u.updated_at"), ("email", "u.email"), ("fullName", "u.full_name"), ("status", "u.status"));
+
+    public SortMap Sort => Sorts;
+}
 
 [RequirePermission(Permissions.ManageRoles)]
 [RestrictToUserTypes(UserType.Processor, UserType.Admin)]
@@ -39,7 +52,7 @@ internal sealed class ListBanksHandler(IDapperQueryService db, ICurrentUser curr
         var parameters = new DynamicParameters(new { BankIds = currentUser.BankScopes.ToArray() });
         var page = await db.QueryPageAsync<BankRow>(
             $"SELECT count(*) {Filter}",
-            $"SELECT b.id, b.bank_code, b.bank_name, b.country, b.status, b.created_at, b.updated_at {Filter} ORDER BY b.bank_code LIMIT @Limit OFFSET @Offset",
+            $"SELECT b.id, b.bank_code, b.bank_name, b.country, b.status, b.created_at, b.updated_at {Filter} {request.Sort.OrderBy(request.Page)} LIMIT @Limit OFFSET @Offset",
             parameters,
             request.Page,
             cancellationToken);
@@ -69,7 +82,7 @@ internal sealed class ListBankUsersHandler(IDapperQueryService db)
     {
         var page = await db.QueryPageAsync<BankUserRow>(
             $"SELECT count(*) {Filter}",
-            $"SELECT u.id, u.bank_id, u.email, u.full_name, u.user_type, u.role_id, u.status, u.created_at, u.updated_at {Filter} ORDER BY u.email, u.id LIMIT @Limit OFFSET @Offset",
+            $"SELECT u.id, u.bank_id, u.email, u.full_name, u.user_type, u.role_id, u.status, u.created_at, u.updated_at {Filter} {request.Sort.OrderBy(request.Page)} LIMIT @Limit OFFSET @Offset",
             new DynamicParameters(new { request.BankId }),
             request.Page,
             cancellationToken);

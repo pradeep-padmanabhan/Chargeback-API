@@ -120,7 +120,8 @@ public sealed class CurrentUserTests(PostgresFixture fixture)
         response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
         var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("code").GetString().Should().Be(code);
-        problem.GetProperty("traceId").GetString().Should().Be(response.Headers.GetValues("X-Correlation-Id").Single());
+        problem.GetProperty("traceId").GetString().Should().NotBeNullOrEmpty()
+            .And.NotBe(response.Headers.GetValues("X-Correlation-Id").Single(), "traceId is the trace id, not the correlation id");
         problem.TryGetProperty("correlationId", out _).Should().BeFalse("traceId replaces correlationId (common guide §3.4)");
     }
 }

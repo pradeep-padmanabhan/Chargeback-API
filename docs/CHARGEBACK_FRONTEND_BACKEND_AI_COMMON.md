@@ -460,8 +460,8 @@ The repository (Phases 5–7) was built before some v1.4 contracts were approved
 | Re-triage permission | `RETRIAGE_CASE` | **Done (2026-10-01)**; ADR-0124 updated | None |
 | Permission constants | `VIEW_TRIAGE`, `RETRIAGE_CASE` seeded | **Done (2026-10-01)**: both in `Permissions.Seeded` | Add a `Migration_0005` idempotency test |
 | Gate results path | `GET /disputes/{disputeId}/gate-results` | **Done (2026-10-01)**: renamed; `/gates` removed (no alias) | None |
-| Pagination | Default `pageSize` **20**; `sortBy`/`sortDirection`; `400 INVALID_SORT_FIELD`; default sort `createdAt desc` | Default 25; no sort parameters | Change the default; add sorting and validation |
-| Error body | ProblemDetails with `traceId` | **Done (2026-10-01)**: `traceId` (= `X-Correlation-Id`) replaces `correlationId` in error bodies | None |
+| Pagination | Default `pageSize` **20**; `sortBy`/`sortDirection`; `400 INVALID_SORT_FIELD`; default sort `createdAt desc` | **Done (2026-10-03)** on all five list endpoints; supported fields published per endpoint in OpenAPI | Open: out-of-range `page`/`pageSize` are clamped, but §3.4 says 400. Confirm which |
+| Error body | ProblemDetails with `traceId` | **Done**: `traceId` replaces `correlationId`; value is the W3C trace id (`Activity.Current.Id`), falling back to the request identifier. `X-Correlation-Id` is unchanged | None |
 | Bulk upload | `POST /intake/bulk/dry-run`, then `POST /intake/bulk` with `dryRunId` | `POST /intake/bulk` only | Add the dry-run step (storage open: §8 #26) |
 | CORS | `Retry-After` in `Access-Control-Expose-Headers` | Not configured | Add a CORS policy exposing `Retry-After`, `Idempotent-Replayed`, and `ETag` while `If-Match` remains |
 

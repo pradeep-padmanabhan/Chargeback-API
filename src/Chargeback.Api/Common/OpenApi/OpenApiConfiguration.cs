@@ -1,4 +1,5 @@
 using Chargeback.Api.Common.Http;
+using Chargeback.Api.Common.Paging;
 using Chargeback.SharedKernel.Paging;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi.Any;
@@ -54,7 +55,8 @@ public static class OpenApiConfiguration
                     Schema = new OpenApiSchema { Type = "string", MaxLength = 64 },
                 });
 
-                // Approved pagination contract: 1-based page; pageSize 1-100, default 25.
+                // Approved pagination contract: 1-based page; pageSize 1-100, default 20; sortBy/sortDirection, default createdAt desc.
+                var sortFields = context.Description.ActionDescriptor.EndpointMetadata.OfType<SortFieldsMetadata>().FirstOrDefault()?.Fields;
                 foreach (var parameter in operation.Parameters.Where(p => p.In == ParameterLocation.Query))
                 {
                     switch (parameter.Name)
@@ -72,6 +74,24 @@ public static class OpenApiConfiguration
                                 Minimum = 1,
                                 Maximum = PageRequest.MaxPageSize,
                                 Default = new OpenApiInteger(PageRequest.DefaultPageSize),
+                            };
+                            break;
+                        case "sortBy" when sortFields is not null:
+                            parameter.Description = $"Field to sort by (default {SortMap.DefaultField}). Any other value returns 400 INVALID_SORT_FIELD.";
+                            parameter.Schema = new OpenApiSchema
+                            {
+                                Type = "string",
+                                Enum = [.. sortFields.Select(f => (IOpenApiAny)new OpenApiString(f))],
+                                Default = new OpenApiString(SortMap.DefaultField),
+                            };
+                            break;
+                        case "sortDirection":
+                            parameter.Description = "Sort direction (default desc); case-insensitive.";
+                            parameter.Schema = new OpenApiSchema
+                            {
+                                Type = "string",
+                                Enum = [new OpenApiString(SortMap.Ascending), new OpenApiString(SortMap.Descending)],
+                                Default = new OpenApiString(SortMap.Descending),
                             };
                             break;
                     }
