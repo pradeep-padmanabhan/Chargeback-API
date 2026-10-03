@@ -50,6 +50,10 @@ Do these before starting new phases. Each needs tests, and OpenAPI and `docs/con
    - S3 is the `KNOWN_LIMITATION_S3_` stub (`KnownLimitationS3Service`); replace it once guide §8 #29 is decided.
    - OCR (Textract) is open (§8 #32).
    - Checklist seeding per scheme is open (§8 #28).
+4. ~~**Admin & Configuration (bank users)**~~ **Done.**
+   - Bank list and detail, plus bank-user list, invite, update and soft delete (`MANAGE_BANK_USERS`), and `GET /admin/roles`.
+   - Migration 0008.
+   - Still stubbed: bank creation, bank-scope grants, scheme rules. Open: bank-admin role (§8 #33), Cognito provisioning (§8 #34).
 
 ## Idempotency key store (ADR-0106): implemented
 - Migration 0004 adds the `idempotency_keys` table. `IdempotencyBehavior` sits between Authorization and Transaction.

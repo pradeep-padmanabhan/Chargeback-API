@@ -62,6 +62,10 @@ Every `data` object also repeats the envelope's base fields (`eventId`, `eventTy
 | `document.uploaded` | `documentId`, `documentSlotId`, `schemeStage`, `confirmedBy` (consumed by `document-classification`) |
 | `document.processed` | `documentId`, `classificationId`, `processingStatus` (Success/Failed), `failureReason` |
 | `document.deleted` | `documentId`, `deletedBy` |
+| `user.invited` | `userId`, `roleId`, `invitedBy` (no invite token) |
+| `user.updated` | `userId`, `changedFields` (`fullName`, `status`), `fromStatus`, `toStatus`, `updatedBy` |
+| `user.role.changed` | `userId`, `fromRoleId`, `toRoleId`, `changedBy` (immutable audit of every role change) |
+| `user.deleted` | `userId`, `deletedBy` |
 | `case.review.decided` | `decisionId`, `decision` (APPROVED/REJECTED), `reasonCodeId` (null on reject), `rationale`, `reviewedBy` |
 
 The `triage.completed` sub-objects:

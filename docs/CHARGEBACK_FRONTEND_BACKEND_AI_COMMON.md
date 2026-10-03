@@ -115,6 +115,9 @@ The following permission codes and role assignments are approved. BANK users hol
 | `REVIEW_CASE` | ✓ | ✓ | ✓ | ✓ |
 | `UPLOAD_DOCUMENT` | ✓ | ✓ | ✓ | ✓ |
 | `VIEW_DOCUMENTS` | ✓ | ✓ | ✓ | ✓ |
+| `MANAGE_BANK_USERS` | ✓ | ✓ | ✓ | ✓ |
+
+Bank users get the BANK-type **`Bank User`** role (migration 0008), which holds **no** permissions. A user's role type must match its user type.
 | `VIEW_BANK_USERS` | ✓ | ✓ | ✓ | ✓ |
 
 **Implementation notes:**
@@ -307,6 +310,7 @@ The companion `CHARGEBACK_DIAGRAM_BASELINE.sql` creates a **fresh, standalone di
 | `0005_role_permission_matrix.sql` (v1.5) | `VIEW_TRIAGE`, `RETRIAGE_CASE`; the four approved roles; the §3.1 matrix (20 rows); no bank scope |
 | `0006_human_review.sql` | `REVIEW_CASE` for all four roles; append-only `case_review_decisions` (ADR-0101) |
 | `0007_evidence_documents.sql` | `UPLOAD_DOCUMENT`, `VIEW_DOCUMENTS` for all four roles; `documents.upload_status` / `upload_confirmed_at` / `deleted_at` / `deleted_by`; immutable upload-stage trigger (ADR-0104); append-only `document_classifications` |
+| `0008_admin_user_management.sql` | `MANAGE_BANK_USERS` for all four roles; BANK-type `Bank User` role (no permissions); `users.invited_at` / `deleted_at` / `deleted_by`; deleted ⇒ DISABLED |
 
 **Complete install** = 0001 followed by every `db/migrations/NNNN_*.sql` in order. All scripts are idempotent and transactional; the application never runs DDL (ADR-0004). Integration tests build every ephemeral database the same way. Migration tooling (Flyway, DbUp or other) is still open (§8 #25).
 
@@ -449,7 +453,7 @@ flowchart TD
 | 18 | Bulk upload template and limits (Q9) | **Open** |
 | 19 | Admin MVP scope (Q11) | **Open** |
 | 20 | Hosting / domains per surface (Q12) | **Open** |
-| 21 | Which roles hold `CREATE_DISPUTE`, and how bank users submit intake via Client Portal/SDK | **Open** — intake unusable outside tests until assigned |
+| 21 | Which roles hold `CREATE_DISPUTE`, and how bank users submit intake via Client Portal/SDK | **Open — lead decision.** Still assigned to **no role**: intake is demo/test-only until product and security approve |
 | 22 | Remaining ADR-0110 transition questions: direct close of NEW/FLAGGED/UNDER_REVIEW; UNDER_REVIEW → FLAGGED/NEW; status effect of `Invalid` / `AutoRefund` triage outcomes | **Open** |
 | 23 | Other status vocabularies: `disputes.status` beyond NEW/FLAGGED, `cases.priority`, `mastercom_filings.*`, `banks.status`, `zendesk_tickets.status` | **Open** |
 | 24 | Gate result history / `gate_definition_version` column (ADR-0117); gate re-evaluation | **Open** — gate behaviour approved; schema proposed |
@@ -461,6 +465,10 @@ flowchart TD
 | 30 | Maximum upload size | **Open** — configurable `Documents:MaxFileSizeBytes`, default 25 MB pending product sign-off |
 | 31 | May bank users upload through the Client Portal, or only analysts? | **Open** — processor/admin only today |
 | 32 | OCR (Textract) adapter and extracted-field schema for `document_classifications.extracted_fields` | **Open** — classification currently receives no extracted text |
+| 33 | Bank-admin role: may a bank user manage its own bank's users? | **Deferred** — needs product approval to change the §3.1 rule that bank users hold no permissions |
+| 34 | Cognito provisioning: invite email, identity linking for invited users (placeholder `pending-invite:` sub) | **Open** — `KNOWN_LIMITATION_INVITE_EMAIL_` |
+| 35 | Session revocation on deactivation (Cognito global sign-out) | **Open** — the API refuses a deactivated user on the next request; tokens are not revoked |
+| 36 | Retire unused seeded permissions `VIEW_BANKS`, `CREATE_BANK_USER`, `UPDATE_BANK_USER`, `DISABLE_BANK_USER` | **Open** |
 
 **Resolved in v1.5:**
 - Role matrix seeded by migration 0005; `VIEW_TRIAGE` and `RETRIAGE_CASE` defined → §3.1, §5

@@ -6,7 +6,8 @@ namespace Chargeback.IntegrationTests.Infrastructure;
 
 public sealed record TestUser(Guid Id, string Sub, Guid? BankId);
 
-public sealed record BankWorld(Guid BankId, Guid DisputeId, Guid CaseId, Guid DocumentId, Guid FilingId, TestUser BankUser);
+/// <param name="Member">A second, permissionless user of the bank: the target of user-management endpoints, never a caller.</param>
+public sealed record BankWorld(Guid BankId, Guid DisputeId, Guid CaseId, Guid DocumentId, Guid FilingId, TestUser BankUser, TestUser Member);
 
 /// <summary>Direct SQL seeding into the ephemeral test database. Every call creates unique rows.</summary>
 public sealed class TestData(string connectionString)
@@ -105,7 +106,8 @@ public sealed class TestData(string connectionString)
             "INSERT INTO chargeback_diagram.mastercom_filings(case_id, idempotency_key) VALUES (@caseId, @key) RETURNING id",
             new { caseId, key = "idem-" + Unique() });
         var bankUser = await CreateUserWithPermissionsAsync("BANK", bankId, AllPermissions);
-        return new BankWorld(bankId, disputeId, caseId, documentId, filingId, bankUser);
+        var member = await CreateUserWithPermissionsAsync("BANK", bankId);
+        return new BankWorld(bankId, disputeId, caseId, documentId, filingId, bankUser, member);
     }
 
     public async Task<T> QueryScalarAsync<T>(string sql, object? parameters = null)

@@ -14,26 +14,6 @@ namespace Chargeback.Api.Features.Admin;
 [NotBankScoped("Creates a new bank tenant; no existing bank scope applies.")]
 public sealed record CreateBankCommand(CreateBankRequest Body) : ICommand<BankDto>, ITransactionalCommand;
 
-[RequirePermission(Permissions.CreateBankUser)]
-public sealed record CreateBankUserCommand(Guid BankId, CreateBankUserRequest Body) : ICommand<BankUserDto>, IBankScopedRequest, ITransactionalCommand;
-
-[RequirePermission(Permissions.UpdateBankUser)]
-public sealed record UpdateBankUserCommand(Guid UserId, UpdateBankUserRequest Body) : ICommand<BankUserDto>, IResourceScopedRequest, ITransactionalCommand
-{
-    public ScopedResource Resource => new(ScopedResourceKind.BankUser, UserId);
-}
-
-[RequirePermission(Permissions.DisableBankUser)]
-public sealed record DisableBankUserCommand(Guid UserId) : ICommand, IResourceScopedRequest, ITransactionalCommand
-{
-    public ScopedResource Resource => new(ScopedResourceKind.BankUser, UserId);
-}
-
-[RequirePermission(Permissions.ManageRoles)]
-[RestrictToUserTypes(UserType.Processor, UserType.Admin)]
-[NotBankScoped("Roles are global configuration.")]
-public sealed record ListRolesQuery : IQuery<IReadOnlyList<RoleDto>>;
-
 /// <summary>Handler must also verify the granter holds scope for every bank granted (Phase 12).</summary>
 [RequirePermission(Permissions.ManageBankScopes)]
 [RestrictToUserTypes(UserType.Admin)]
@@ -68,14 +48,6 @@ public sealed record CreateSchemeRuleCommand(CreateSchemeRuleSpecRequest Body) :
 public sealed record ApproveSchemeRuleCommand(Guid RuleId) : ICommand<SchemeRuleSpecDto>, ITransactionalCommand;
 
 internal sealed class CreateBankHandler : NotImplementedHandler<CreateBankCommand, Result<BankDto>>;
-
-internal sealed class CreateBankUserHandler : NotImplementedHandler<CreateBankUserCommand, Result<BankUserDto>>;
-
-internal sealed class UpdateBankUserHandler : NotImplementedHandler<UpdateBankUserCommand, Result<BankUserDto>>;
-
-internal sealed class DisableBankUserHandler : NotImplementedHandler<DisableBankUserCommand, Result>;
-
-internal sealed class ListRolesHandler : NotImplementedHandler<ListRolesQuery, Result<IReadOnlyList<RoleDto>>>;
 
 internal sealed class GetUserBankScopesHandler : NotImplementedHandler<GetUserBankScopesQuery, Result<IReadOnlyList<BankScopeDto>>>;
 

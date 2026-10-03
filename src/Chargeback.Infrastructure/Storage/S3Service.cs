@@ -16,7 +16,7 @@ public interface IS3Service
 }
 
 /// <summary>
-/// KNOWN_LIMITATION_S3_: bucket names and IAM policy are not confirmed (guide §8 #20), so no real S3 client exists.
+/// KNOWN_LIMITATION_S3_: bucket names and IAM policy are not confirmed (guide §8 #29), so no real S3 client exists.
 /// Returns a plausible pre-signed URL on a reserved <c>.invalid</c> host (nothing can be uploaded to it) and reports
 /// every object as present, so the rest of the flow can be exercised end to end. Replace before any shared environment.
 /// </summary>

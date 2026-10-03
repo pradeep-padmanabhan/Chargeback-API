@@ -50,3 +50,10 @@ Also needed: the role → permission matrix and the processor-to-bank scope matr
 - **Where it is defined:** the baseline (fresh installs) and migration 0006 (existing databases).
 - **Who holds it:** all four roles (Analyst, Senior Analyst, Compliance Officer, Admin) via migration 0006.
 - **What it guards:** the review queue, the workspace and the decision.
+
+## Admin & Configuration decision (2026-10-03)
+- **New permission:** `MANAGE_BANK_USERS` is approved. It is defined in the baseline and migration 0008, and held by all four roles. It guards inviting, updating and removing bank users.
+- **Changed guard:** `GET /admin/banks` and `GET /admin/banks/{id}` now require `VIEW_BANK_USERS` instead of `VIEW_BANKS`, matching the approved matrix.
+- **Now unused but still seeded:** `VIEW_BANKS`, `CREATE_BANK_USER`, `UPDATE_BANK_USER` and `DISABLE_BANK_USER`. No role holds them and no endpoint checks them. Whether to retire them is open (guide §8 #36).
+- **New role:** migration 0008 adds the BANK-type `Bank User` role with no permissions. A user's role type must match the user type, and §3.1 says bank users hold no permissions.
+- **Bank-admin role:** deferred pending product approval (§8 #33).

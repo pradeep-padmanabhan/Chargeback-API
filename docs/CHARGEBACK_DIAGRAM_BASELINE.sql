@@ -4,7 +4,7 @@
 -- Does not create application login roles, enable RLS, or insert scheme rule values;
 -- production deployment MUST configure and test those controls separately.
 -- This is migration 0001. A complete install is this file followed by every db/migrations/NNNN_*.sql in order
--- (0002-0007); role -> permission assignments (guide §3.1) are seeded by migrations 0005-0007, never by this file.
+-- (0002-0008); roles and role -> permission assignments (guide §3.1) are seeded by migrations 0005-0008, never by this file.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE SCHEMA IF NOT EXISTS chargeback_diagram;
@@ -183,7 +183,9 @@ INSERT INTO permissions(name,resource,action,description) VALUES
  -- Human Review decision (2026-10-03): definition only here; assigned to roles by migration 0006.
  ('REVIEW_CASE','CASE','REVIEW','Review permitted cases and record approve/reject decisions'),
  -- Evidence & Documents decision (2026-10-03): definition only here; assigned to roles by migration 0007.
- ('VIEW_DOCUMENTS','DOCUMENT','READ','View documents of permitted cases');
+ ('VIEW_DOCUMENTS','DOCUMENT','READ','View documents of permitted cases'),
+ -- Admin & Configuration decision (2026-10-03): definition only here; assigned to roles by migration 0008.
+ ('MANAGE_BANK_USERS','USER','MANAGE','Invite, update and remove users of permitted banks');
 COMMIT;
 -- VALIDATION (read-only, run after script):
 -- SELECT table_name FROM information_schema.tables WHERE table_schema='chargeback_diagram' ORDER BY 1;

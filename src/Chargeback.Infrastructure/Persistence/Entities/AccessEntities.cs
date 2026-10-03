@@ -71,6 +71,14 @@ public sealed class User : AuditableEntity
     public Guid RoleId { get; set; }
 
     public string Status { get; set; } = "ACTIVE";
+
+    /// <summary>Migration 0008: set for invited users (placeholder <c>cognito_sub</c>, DISABLED until identity linking exists).</summary>
+    public DateTimeOffset? InvitedAt { get; set; }
+
+    /// <summary>Migration 0008: soft delete; a deleted user is always DISABLED.</summary>
+    public DateTimeOffset? DeletedAt { get; set; }
+
+    public Guid? DeletedBy { get; set; }
 }
 
 /// <summary><c>user_bank_scopes</c> (composite key user_id, bank_id)</summary>

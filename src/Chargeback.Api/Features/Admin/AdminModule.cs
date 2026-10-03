@@ -16,14 +16,14 @@ public sealed class AdminModule : ICarterModule
     {
         var admin = app.MapGroup($"{EndpointConventions.ApiPrefix}/admin").WithTags("Admin");
 
-        admin.MapGet("/banks", (int? page, int? pageSize, string? sortBy, string? sortDirection, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new ListBanksQuery(new PageRequest(page, pageSize, sortBy, sortDirection)), http))
-            .WithContract<PagedResult<BankDto>>("listBanks", "Banks within the caller's bank scope")
+        admin.MapGet("/banks", (string? status, int? page, int? pageSize, string? sortBy, string? sortDirection, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new ListBanksQuery(status, new PageRequest(page, pageSize, sortBy, sortDirection)), http))
+            .WithContract<PagedResult<BankDto>>("listBanks", "Banks within the caller's bank scope (VIEW_BANK_USERS; processor/admin)")
             .WithSortFields(ListBanksQuery.Sorts);
 
         admin.MapGet("/banks/{bankId:guid}", (Guid bankId, ISender sender, HttpContext http) =>
                 Dispatch.Send(sender, new GetBankQuery(bankId), http))
-            .WithContract<BankDto>("getBank", "One bank (404 if outside scope)");
+            .WithContract<BankDetailDto>("getBank", "One bank with active-user counts per role and the caller's permissions (404 if outside scope)");
 
         admin.MapPost("/banks", (CreateBankRequest body, ISender sender, HttpContext http) =>
                 Dispatch.Send(sender, new CreateBankCommand(body), http, dto => TypedResults.Created($"/api/v1/admin/banks/{dto.Id}", dto)))
@@ -36,19 +36,30 @@ public sealed class AdminModule : ICarterModule
             .WithSortFields(ListBankUsersQuery.Sorts);
 
         admin.MapPost("/banks/{bankId:guid}/users", (Guid bankId, CreateBankUserRequest body, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new CreateBankUserCommand(bankId, body), http, dto => TypedResults.Created($"/api/v1/admin/users/{dto.Id}", dto)))
-            .WithContract<BankUserDto>("createBankUser", "Create a bank user", StatusCodes.Status201Created)
-            .AsStub(StubPhase);
+                Dispatch.Send(sender, new CreateBankUserCommand(bankId, body), http,
+                    dto => TypedResults.Created($"/api/v1/admin/banks/{bankId}/users/{dto.User.Id}", dto)))
+            .WithContract<InvitedBankUserDto>("createBankUser", "Invite a bank user (MANAGE_BANK_USERS)", StatusCodes.Status201Created)
+            .WithDescription(
+                "Body {email, fullName, roleId}; roleId must be an active BANK-type role (422 ROLE_NOT_ASSIGNABLE); 409 USER_EMAIL_IN_USE. " +
+                "The user is DISABLED with a placeholder identity until Cognito linking exists. KNOWN_LIMITATION_INVITE_EMAIL_: no email is sent; " +
+                "the returned inviteToken is a placeholder, not stored and not redeemable.")
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
-        admin.MapPatch("/users/{userId:guid}", (Guid userId, UpdateBankUserRequest body, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new UpdateBankUserCommand(userId, body), http))
-            .WithContract<BankUserDto>("updateBankUser", "Update a bank user")
-            .AsStub(StubPhase);
+        admin.MapPatch("/banks/{bankId:guid}/users/{userId:guid}", (Guid bankId, Guid userId, UpdateBankUserRequest body, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new UpdateBankUserCommand(bankId, userId, body), http))
+            .WithContract<BankUserDto>("updateBankUser", "Update a bank user's name, role or active state (MANAGE_BANK_USERS)")
+            .WithDescription(
+                "Body {fullName?, roleId?, isActive?}, at least one. A role change is audited (user.role.changed). Deactivation applies from the " +
+                "user's next request but does not revoke Cognito sessions (known limitation). 409 INVITE_PENDING when activating an invited user.")
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
-        admin.MapPost("/users/{userId:guid}/disable", (Guid userId, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new DisableBankUserCommand(userId), http))
-            .WithNoContentContract("disableBankUser", "Disable a bank user")
-            .AsStub(StubPhase);
+        admin.MapDelete("/banks/{bankId:guid}/users/{userId:guid}", (Guid bankId, Guid userId, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new DeleteBankUserCommand(bankId, userId), http, _ => TypedResults.NoContent()))
+            .WithContract<BankUserDto>("deleteBankUser", "Remove a bank user: soft delete, audited (MANAGE_BANK_USERS)", StatusCodes.Status204NoContent)
+            .WithDescription("The row is kept with deletedAt and status DISABLED (user.deleted). 409 CANNOT_DELETE_SELF.")
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         admin.MapGet("/users/{userId:guid}/bank-scopes", (Guid userId, ISender sender, HttpContext http) =>
                 Dispatch.Send(sender, new GetUserBankScopesQuery(userId), http))
@@ -62,8 +73,7 @@ public sealed class AdminModule : ICarterModule
 
         admin.MapGet("/roles", (ISender sender, HttpContext http) =>
                 Dispatch.Send(sender, new ListRolesQuery(), http))
-            .WithContract<IReadOnlyList<RoleDto>>("listRoles", "Roles and their permissions")
-            .AsStub(StubPhase);
+            .WithContract<IReadOnlyList<RoleDto>>("listRoles", "Roles and their permissions (any platform user; read-only)");
 
         admin.MapGet("/permissions", (ISender sender, HttpContext http) =>
                 Dispatch.Send(sender, new ListPermissionsQuery(), http))

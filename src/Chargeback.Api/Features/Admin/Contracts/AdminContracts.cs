@@ -10,12 +10,53 @@ public sealed record BankDto(Guid Id, string BankCode, string BankName, string? 
 
 public sealed record CreateBankRequest(string BankCode, string BankName, string? Country);
 
-public sealed record BankUserDto(Guid Id, Guid BankId, string Email, string FullName, UserType UserType, Guid RoleId, string Status, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+/// <summary>
+/// A bank's user. <c>InvitedAt</c> is set for invited users, which stay DISABLED until Cognito identity linking exists.
+/// <c>DeletedAt</c> is set for removed users (kept for audit; always DISABLED).
+/// </summary>
+public sealed record BankUserDto(
+    Guid Id,
+    Guid BankId,
+    string Email,
+    string FullName,
+    UserType UserType,
+    Guid RoleId,
+    string Status,
+    DateTimeOffset? InvitedAt,
+    DateTimeOffset? DeletedAt,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
 
-/// <summary>Cognito identity provisioning for new users is an open question (Q-new-3).</summary>
-public sealed record CreateBankUserRequest(string Email, string FullName, Guid RoleId);
+/// <summary>Active users of a bank holding one role.</summary>
+public sealed record RoleUserCountDto(Guid RoleId, string RoleName, int ActiveUsers);
 
-public sealed record UpdateBankUserRequest(string? FullName, Guid? RoleId);
+/// <summary>
+/// One bank with its active-user count, the active users per role, and the permissions the caller holds (what the caller
+/// may do with this bank in the admin pages; the bank is already within the caller's scope).
+/// </summary>
+public sealed record BankDetailDto(
+    Guid Id,
+    string BankCode,
+    string BankName,
+    string? Country,
+    string Status,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    int ActiveUserCount,
+    IReadOnlyList<RoleUserCountDto> UsersByRole,
+    IReadOnlyList<string> CallerPermissions);
+
+/// <summary>Invite a bank user. <c>RoleId</c> must be an active BANK-type role (e.g. "Bank User").</summary>
+public sealed record CreateBankUserRequest(string? Email, string? FullName, Guid? RoleId);
+
+/// <summary>
+/// The invited user plus a one-time invite token. KNOWN_LIMITATION_INVITE_EMAIL_: no email is sent and the token is a
+/// placeholder that is not stored and cannot be redeemed; Cognito provisioning is an open decision.
+/// </summary>
+public sealed record InvitedBankUserDto(BankUserDto User, string InviteToken, string InviteDelivery);
+
+/// <summary>Change name, role (audited as user.role.changed) or active state. At least one field.</summary>
+public sealed record UpdateBankUserRequest(string? FullName, Guid? RoleId, bool? IsActive);
 
 public sealed record PermissionDto(Guid Id, string Name, string Resource, string Action, string? Description, bool IsActive);
 

@@ -144,7 +144,7 @@ public sealed partial class EndpointSecurityTests(PostgresFixture fixture)
         "documentId" => world.DocumentId,
         "filingId" => world.FilingId,
         "bankId" => world.BankId,
-        "userId" => world.BankUser.Id,
+        "userId" => world.Member.Id,
         _ => Guid.NewGuid(),
     };
 
@@ -186,6 +186,8 @@ public sealed partial class EndpointSecurityTests(PostgresFixture fixture)
         _ when pattern.EndsWith("/transitions", StringComparison.Ordinal) => """{"action":"START_REVIEW","rationale":"isolation test","expectedVersion":0}""",
         _ when pattern.EndsWith("/retriage", StringComparison.Ordinal) => """{"reason":"isolation test"}""",
         _ when pattern.EndsWith("/documents/", StringComparison.Ordinal) => """{"fileName":"isolation.pdf","mimeType":"application/pdf","fileSizeBytes":10,"schemeStage":"Initial"}""",
+        _ when pattern.EndsWith("/admin/banks/{bankId:guid}/users", StringComparison.Ordinal) => $$"""{"email":"iso-{{Guid.NewGuid():N}}@example.test","fullName":"Isolation","roleId":"{{Guid.NewGuid()}}"}""",
+        _ when pattern.EndsWith("/users/{userId:guid}", StringComparison.Ordinal) => """{"fullName":"Isolation"}""",
         _ when pattern.EndsWith("/review/decision", StringComparison.Ordinal) => """{"decision":"Reject","rationale":"isolation test","expectedVersion":0}""",
         _ => "{}",
     };

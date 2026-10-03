@@ -36,6 +36,9 @@ public static class Permissions
     /// <summary>Evidence &amp; Documents (approved 2026-10-03): defined in the baseline; assigned to all four roles by migration 0007.</summary>
     public const string ViewDocuments = "VIEW_DOCUMENTS";
 
+    /// <summary>Admin &amp; Configuration (approved 2026-10-03): defined in the baseline; assigned to all four roles by migration 0008.</summary>
+    public const string ManageBankUsers = "MANAGE_BANK_USERS";
+
     // ---- PROPOSED, NOT SEEDED (ADR-0111) -------------------------------------------------
     // Operations guarded by these are denied to every user until product/security approve the
     // names and seed them. Do not seed them from application code.
@@ -51,7 +54,7 @@ public static class Permissions
     [
         ViewBanks, ViewBankUsers, CreateBankUser, UpdateBankUser, DisableBankUser,
         ViewCases, UpdateCaseStatus, UploadDocument, SubmitMastercom, ViewReports, CreateDispute, AssignCase,
-        ViewTriage, RetriageCase, ReviewCase, ViewDocuments,
+        ViewTriage, RetriageCase, ReviewCase, ViewDocuments, ManageBankUsers,
     ];
 
     public static readonly IReadOnlyList<string> Proposed =

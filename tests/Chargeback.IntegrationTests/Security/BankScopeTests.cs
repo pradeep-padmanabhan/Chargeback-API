@@ -17,7 +17,7 @@ public sealed class BankScopeTests(PostgresFixture fixture)
         var a = await fixture.Data.CreateBankAsync();
         var c = await fixture.Data.CreateBankAsync();
         await fixture.Data.CreateBankAsync(); // not granted
-        var processor = await fixture.Data.CreateUserWithPermissionsAsync("PROCESSOR", null, Permissions.ViewBanks);
+        var processor = await fixture.Data.CreateUserWithPermissionsAsync("PROCESSOR", null, Permissions.ViewBankUsers);
         await fixture.Data.GrantScopeAsync(processor.Id, a);
         await fixture.Data.GrantScopeAsync(processor.Id, c);
 
@@ -28,14 +28,14 @@ public sealed class BankScopeTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task Bank_user_lists_only_its_own_bank()
+    public async Task Bank_users_cannot_use_admin_bank_endpoints()
     {
         var own = await fixture.Data.CreateBankAsync();
-        var bankUser = await fixture.Data.CreateUserWithPermissionsAsync("BANK", own, Permissions.ViewBanks);
+        var bankUser = await fixture.Data.CreateUserWithPermissionsAsync("BANK", own, Permissions.ViewBankUsers, Permissions.ManageBankUsers);
 
-        var page = await GetOk<PagedResult<BankDto>>(bankUser.Sub, "/api/v1/admin/banks");
-
-        page.Items.Select(b => b.Id).Should().Equal(own);
+        (await Get(bankUser.Sub, "/api/v1/admin/banks")).StatusCode.Should().Be(HttpStatusCode.Forbidden, "a bank-admin role is deferred");
+        (await Get(bankUser.Sub, $"/api/v1/admin/banks/{own}")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await Get(bankUser.Sub, $"/api/v1/admin/banks/{own}/users")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public sealed class BankScopeTests(PostgresFixture fixture)
     {
         var own = await fixture.Data.CreateBankAsync();
         var other = await fixture.Data.CreateBankAsync();
-        var processor = await fixture.Data.CreateUserWithPermissionsAsync("PROCESSOR", null, Permissions.ViewBanks);
+        var processor = await fixture.Data.CreateUserWithPermissionsAsync("PROCESSOR", null, Permissions.ViewBankUsers);
         await fixture.Data.GrantScopeAsync(processor.Id, own);
         var noPermission = await fixture.Data.CreateUserWithPermissionsAsync("PROCESSOR", null, Permissions.ViewCases);
         await fixture.Data.GrantScopeAsync(noPermission.Id, own);

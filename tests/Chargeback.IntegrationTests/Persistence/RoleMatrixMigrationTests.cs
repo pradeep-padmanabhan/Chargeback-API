@@ -4,7 +4,7 @@ using Npgsql;
 
 namespace Chargeback.IntegrationTests.Persistence;
 
-/// <summary>The approved role → permission matrix: migration 0005 (base matrix), 0006 (REVIEW_CASE), 0007 (document permissions).</summary>
+/// <summary>The approved roles and matrix: 0005 (base), 0006 (REVIEW_CASE), 0007 (document permissions), 0008 (MANAGE_BANK_USERS, Bank User role).</summary>
 [Collection(PostgresCollection.Name)]
 public sealed class RoleMatrixMigrationTests(PostgresFixture fixture)
 {
@@ -85,13 +85,40 @@ public sealed class RoleMatrixMigrationTests(PostgresFixture fixture)
             """)).Should().Be(2);
     }
 
-    /// <summary>Granted to all four roles by migrations 0006 and 0007.</summary>
-    private static readonly string[] CompleteInstallGrants = ["REVIEW_CASE", "UPLOAD_DOCUMENT", "VIEW_DOCUMENTS"];
+    [Fact]
+    public async Task Migration_0008_adds_manage_bank_users_and_the_bank_user_role_and_is_idempotent()
+    {
+        var target = await NewDatabaseAsync();
+        await BaselineDatabase.ApplyAllAsync(target);
+
+        await BaselineDatabase.ExecuteScriptAsync(target, BaselineDatabase.MigrationPath("0008_admin_user_management.sql"));
+        await BaselineDatabase.ExecuteScriptAsync(target, BaselineDatabase.MigrationPath("0008_admin_user_management.sql"));
+
+        await using var connection = new NpgsqlConnection(target);
+        await AssertApprovedMatrixAsync(connection, CompleteInstallGrants);
+        (await connection.ExecuteScalarAsync<long>(
+            """
+            SELECT count(*) FROM chargeback_diagram.role_permissions rp JOIN chargeback_diagram.roles r ON r.id = rp.role_id
+            WHERE r.name = 'Bank User'
+            """)).Should().Be(0, "bank users hold no permissions (guide §3.1)");
+        (await connection.ExecuteScalarAsync<long>(
+            "SELECT count(*) FROM pg_constraint WHERE conname = 'users_deleted_disabled_check'")).Should().Be(1);
+    }
+
+    /// <summary>Granted to all four roles by migrations 0006-0008.</summary>
+    private static readonly string[] CompleteInstallGrants = ["REVIEW_CASE", "UPLOAD_DOCUMENT", "VIEW_DOCUMENTS", "MANAGE_BANK_USERS"];
 
     private static async Task AssertApprovedMatrixAsync(NpgsqlConnection connection, string[]? grantedToAllRoles = null)
     {
+        // A complete install (0008) also has the permissionless BANK-type "Bank User" role.
+        var expectedRoles = Matrix.Select(m => (m.Role, m.Type)).ToList();
+        if (grantedToAllRoles is not null)
+        {
+            expectedRoles.Add(("Bank User", "BANK"));
+        }
+
         (await connection.QueryAsync<(string Name, string RoleType)>("SELECT name, role_type FROM chargeback_diagram.roles ORDER BY name"))
-            .Should().BeEquivalentTo(Matrix.Select(m => (m.Role, m.Type)), "exactly the four approved roles");
+            .Should().BeEquivalentTo(expectedRoles, "exactly the approved roles");
 
         var pairs = (await connection.QueryAsync<(string Role, string Permission)>(
             """

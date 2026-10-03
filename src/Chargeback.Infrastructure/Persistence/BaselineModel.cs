@@ -39,6 +39,7 @@ internal static class BaselineModel
             e.Property(x => x.UserType).HasConversion(UserTypeConverter);
             e.HasOne<Bank>().WithMany().HasForeignKey(x => x.BankId);
             e.HasOne<Role>().WithMany().HasForeignKey(x => x.RoleId);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.DeletedBy); // migration 0008
         });
         model.Entity<UserBankScope>(e =>
         {

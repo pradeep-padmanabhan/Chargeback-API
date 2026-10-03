@@ -33,6 +33,64 @@
         ],
         "type": "object"
       },
+      "BankDetailDto": {
+        "properties": {
+          "activeUserCount": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "bankCode": {
+            "type": "string"
+          },
+          "bankName": {
+            "type": "string"
+          },
+          "callerPermissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "country": {
+            "nullable": true,
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "usersByRole": {
+            "items": {
+              "$ref": "#/components/schemas/RoleUserCountDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "bankCode",
+          "bankName",
+          "country",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "activeUserCount",
+          "usersByRole",
+          "callerPermissions"
+        ],
+        "type": "object"
+      },
       "BankDto": {
         "properties": {
           "bankCode": {
@@ -135,6 +193,11 @@
             "format": "date-time",
             "type": "string"
           },
+          "deletedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
           "email": {
             "type": "string"
           },
@@ -143,6 +206,11 @@
           },
           "id": {
             "format": "uuid",
+            "type": "string"
+          },
+          "invitedAt": {
+            "format": "date-time",
+            "nullable": true,
             "type": "string"
           },
           "roleId": {
@@ -168,6 +236,8 @@
           "userType",
           "roleId",
           "status",
+          "invitedAt",
+          "deletedAt",
           "createdAt",
           "updatedAt"
         ],
@@ -475,13 +545,16 @@
       "CreateBankUserRequest": {
         "properties": {
           "email": {
+            "nullable": true,
             "type": "string"
           },
           "fullName": {
+            "nullable": true,
             "type": "string"
           },
           "roleId": {
             "format": "uuid",
+            "nullable": true,
             "type": "string"
           }
         },
@@ -1287,6 +1360,25 @@
           "Sdk"
         ]
       },
+      "InvitedBankUserDto": {
+        "properties": {
+          "inviteDelivery": {
+            "type": "string"
+          },
+          "inviteToken": {
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/BankUserDto"
+          }
+        },
+        "required": [
+          "user",
+          "inviteToken",
+          "inviteDelivery"
+        ],
+        "type": "object"
+      },
       "JsonElement": {},
       "MessageSenderType": {
         "enum": [
@@ -2052,6 +2144,27 @@
         ],
         "type": "object"
       },
+      "RoleUserCountDto": {
+        "properties": {
+          "activeUsers": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "roleId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "roleName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "roleId",
+          "roleName",
+          "activeUsers"
+        ],
+        "type": "object"
+      },
       "SchemeRuleSpecDto": {
         "properties": {
           "approvalStatus": {
@@ -2380,6 +2493,10 @@
             "nullable": true,
             "type": "string"
           },
+          "isActive": {
+            "nullable": true,
+            "type": "boolean"
+          },
           "roleId": {
             "format": "uuid",
             "nullable": true,
@@ -2388,7 +2505,8 @@
         },
         "required": [
           "fullName",
-          "roleId"
+          "roleId",
+          "isActive"
         ],
         "type": "object"
       },
@@ -2433,6 +2551,13 @@
       "get": {
         "operationId": "listBanks",
         "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "description": "1-based page number (default 1); values below 1 return 400.",
             "in": "query",
@@ -2547,7 +2672,7 @@
             "description": "Not Found"
           }
         },
-        "summary": "Banks within the caller\u0027s bank scope",
+        "summary": "Banks within the caller\u0027s bank scope (VIEW_BANK_USERS; processor/admin)",
         "tags": [
           "Admin"
         ]
@@ -2672,7 +2797,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BankDto"
+                  "$ref": "#/components/schemas/BankDetailDto"
                 }
               }
             },
@@ -2719,7 +2844,7 @@
             "description": "Not Found"
           }
         },
-        "summary": "One bank (404 if outside scope)",
+        "summary": "One bank with active-user counts per role and the caller\u0027s permissions (404 if outside scope)",
         "tags": [
           "Admin"
         ]
@@ -2858,7 +2983,7 @@
         ]
       },
       "post": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 12 (Admin \u0026 Configuration).",
+        "description": "Body {email, fullName, roleId}; roleId must be an active BANK-type role (422 ROLE_NOT_ASSIGNABLE); 409 USER_EMAIL_IN_USE. The user is DISABLED with a placeholder identity until Cognito linking exists. KNOWN_LIMITATION_INVITE_EMAIL_: no email is sent; the returned inviteToken is a placeholder, not stored and not redeemable.",
         "operationId": "createBankUser",
         "parameters": [
           {
@@ -2895,7 +3020,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BankUserDto"
+                  "$ref": "#/components/schemas/InvitedBankUserDto"
                 }
               }
             },
@@ -2941,7 +3066,7 @@
             },
             "description": "Not Found"
           },
-          "501": {
+          "409": {
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -2949,12 +3074,242 @@
                 }
               }
             },
-            "description": "Not Implemented"
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
           }
         },
-        "summary": "Create a bank user",
+        "summary": "Invite a bank user (MANAGE_BANK_USERS)",
         "tags": [
-          "Stub"
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/banks/{bankId}/users/{userId}": {
+      "delete": {
+        "description": "The row is kept with deletedAt and status DISABLED (user.deleted). 409 CANNOT_DELETE_SELF.",
+        "operationId": "deleteBankUser",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bankId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional caller correlation id (1-64 chars [A-Za-z0-9._-]); echoed in the response.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankUserDto"
+                }
+              }
+            },
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Remove a bank user: soft delete, audited (MANAGE_BANK_USERS)",
+        "tags": [
+          "Admin"
+        ]
+      },
+      "patch": {
+        "description": "Body {fullName?, roleId?, isActive?}, at least one. A role change is audited (user.role.changed). Deactivation applies from the user\u0027s next request but does not revoke Cognito sessions (known limitation). 409 INVITE_PENDING when activating an invited user.",
+        "operationId": "updateBankUser",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bankId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional caller correlation id (1-64 chars [A-Za-z0-9._-]); echoed in the response.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBankUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankUserDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Update a bank user\u0027s name, role or active state (MANAGE_BANK_USERS)",
+        "tags": [
+          "Admin"
         ]
       }
     },
@@ -3121,7 +3476,6 @@
     },
     "/api/v1/admin/roles": {
       "get": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 12 (Admin \u0026 Configuration).",
         "operationId": "listRoles",
         "parameters": [
           {
@@ -3187,21 +3541,11 @@
               }
             },
             "description": "Not Found"
-          },
-          "501": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
-        "summary": "Roles and their permissions",
+        "summary": "Roles and their permissions (any platform user; read-only)",
         "tags": [
-          "Stub"
+          "Admin"
         ]
       }
     },
@@ -3474,108 +3818,6 @@
         ]
       }
     },
-    "/api/v1/admin/users/{userId}": {
-      "patch": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 12 (Admin \u0026 Configuration).",
-        "operationId": "updateBankUser",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "userId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Optional caller correlation id (1-64 chars [A-Za-z0-9._-]); echoed in the response.",
-            "in": "header",
-            "name": "X-Correlation-Id",
-            "schema": {
-              "maxLength": 64,
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateBankUserRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BankUserDto"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "400": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "401": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Unauthorized"
-          },
-          "403": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Forbidden"
-          },
-          "404": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "501": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Implemented"
-          }
-        },
-        "summary": "Update a bank user",
-        "tags": [
-          "Stub"
-        ]
-      }
-    },
     "/api/v1/admin/users/{userId}/bank-scopes": {
       "get": {
         "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 12 (Admin \u0026 Configuration).",
@@ -3769,91 +4011,6 @@
           }
         },
         "summary": "Replace a processor/admin user\u0027s bank scopes",
-        "tags": [
-          "Stub"
-        ]
-      }
-    },
-    "/api/v1/admin/users/{userId}/disable": {
-      "post": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 12 (Admin \u0026 Configuration).",
-        "operationId": "disableBankUser",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "userId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Optional caller correlation id (1-64 chars [A-Za-z0-9._-]); echoed in the response.",
-            "in": "header",
-            "name": "X-Correlation-Id",
-            "schema": {
-              "maxLength": 64,
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "400": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "401": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Unauthorized"
-          },
-          "403": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Forbidden"
-          },
-          "404": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "501": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Implemented"
-          }
-        },
-        "summary": "Disable a bank user",
         "tags": [
           "Stub"
         ]

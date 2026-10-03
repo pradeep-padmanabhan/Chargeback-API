@@ -75,9 +75,7 @@ Implemented now:
 - `POST|GET /cases/{caseId}/documents`, `POST /cases/{caseId}/documents/{documentId}/uploaded`, `GET|DELETE /cases/{caseId}/documents/{documentId}`: see Evidence & Documents (Phase 8) below.
 - `GET /cases/{caseId}/triage`: triage evaluations, newest first. Requires `VIEW_TRIAGE`; processor and admin users only.
 - `GET /me`
-- `GET /admin/banks`
-- `GET /admin/banks/{bankId}`
-- `GET /admin/banks/{bankId}/users`
+- `GET /admin/banks`, `GET /admin/banks/{bankId}`, `GET|POST /admin/banks/{bankId}/users`, `PATCH|DELETE /admin/banks/{bankId}/users/{userId}`, `GET /admin/roles`: see Admin & Configuration below.
 - `GET /admin/permissions`
 
 SDK endpoints return 401 until SDK authentication is approved (ADR-0005).
@@ -225,3 +223,28 @@ A document can be `UPLOADED` while processing is still `Pending`. Poll the docum
 - Fulfillment counts confirmed uploads only; a successful upload is not a verification.
 
 **Who may upload:** processor and admin users only, until bank-user upload through the Client Portal is decided.
+
+## Admin & Configuration (Phase 12, bank users)
+These endpoints are for processor and admin users only; a bank-admin role is deferred. A processor reaches a bank only through an explicit, currently valid `user_bank_scopes` row. A NULL `users.bank_id` never grants access. A bank outside scope returns **404**.
+
+| Endpoint | Permission | Notes |
+|---|---|---|
+| `GET /admin/banks?status&page&pageSize&sortBy&sortDirection` | `VIEW_BANK_USERS` | Banks in scope; optional exact `status` filter; default sort `createdAt desc` |
+| `GET /admin/banks/{bankId}` | `VIEW_BANK_USERS` | `activeUserCount`, `usersByRole` (active users per role), `callerPermissions` |
+| `GET /admin/banks/{bankId}/users` | `VIEW_BANK_USERS` | The bank's users; removed users are excluded |
+| `POST /admin/banks/{bankId}/users` body `{email, fullName, roleId}` | `MANAGE_BANK_USERS` | **201** `{user, inviteToken, inviteDelivery}`. Details below |
+| `PATCH /admin/banks/{bankId}/users/{userId}` body `{fullName?, roleId?, isActive?}` | `MANAGE_BANK_USERS` | At least one field. Details below |
+| `DELETE /admin/banks/{bankId}/users/{userId}` | `MANAGE_BANK_USERS` | **204** soft delete: the row is kept with `deletedAt` and status DISABLED (`user.deleted`). **409** `CANNOT_DELETE_SELF` |
+| `GET /admin/roles` | any platform user | Every role with its permission names; read-only |
+
+**Inviting a user (`POST`):**
+- `roleId` must be an active BANK-type role, such as `Bank User`; otherwise **422** `ROLE_NOT_ASSIGNABLE`.
+- An email already used by a live user returns **409** `USER_EMAIL_IN_USE` (case-insensitive).
+- The new user is **DISABLED**, with a placeholder identity, until Cognito identity linking exists.
+- `KNOWN_LIMITATION_INVITE_EMAIL_`: no email is sent, and `inviteToken` is a placeholder that is neither stored nor redeemable.
+
+**Updating a user (`PATCH`):**
+- A role change is audited as `user.role.changed`.
+- Activating an invited user returns **409** `INVITE_PENDING`.
+- Deactivation applies from the user's next request (users are loaded on every request), but Cognito sessions are not revoked (known limitation).
+- A concurrent change returns **409** `USER_CHANGED`.
