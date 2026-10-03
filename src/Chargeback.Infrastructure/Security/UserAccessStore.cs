@@ -64,9 +64,9 @@ internal sealed class UserAccessStore(IDapperQueryService db) : IUserAccessStore
             ? (await db.QueryAsync<string>(PermissionsSql, new { row.RoleId }, cancellationToken)).ToHashSet(StringComparer.Ordinal)
             : [];
 
-        IReadOnlySet<Guid> scopes = userType == UserType.Bank
-            ? row.BankId is { } own ? new HashSet<Guid> { own } : []
-            : (await db.QueryAsync<Guid>(ScopesSql, new { row.UserId, Now = now }, cancellationToken)).ToHashSet();
+        // Bank users never consult user_bank_scopes; processor/admin users only ever get their explicit grants.
+        var grants = userType == UserType.Bank ? [] : await db.QueryAsync<Guid>(ScopesSql, new { row.UserId, Now = now }, cancellationToken);
+        var scopes = BankScopeResolution.For(userType, row.BankId, grants);
 
         return new UserAccess(
             row.UserId,

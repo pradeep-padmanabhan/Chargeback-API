@@ -248,3 +248,31 @@ These endpoints are for processor and admin users only; a bank-admin role is def
 - Activating an invited user returns **409** `INVITE_PENDING`.
 - Deactivation applies from the user's next request (users are loaded on every request), but Cognito sessions are not revoked (known limitation).
 - A concurrent change returns **409** `USER_CHANGED`.
+
+## Client Portal & Communications (Phase 11)
+Portal endpoints are for **bank users only**, and carry no permission code. Access is gated by `userType = BANK` and the user's own bank (`users.bank_id`, which the database requires for bank users). Another bank's case returns **404**.
+
+| Endpoint | Access | Notes |
+|---|---|---|
+| `GET /portal/cases?status&page&pageSize&sortBy&sortDirection` | bank user | `{caseId, referenceNumber, status, amount, currency, merchantName, createdAt, updatedAt}`. Default `pageSize` 20; sort `createdAt desc` |
+| `GET /portal/cases/{caseId}` | bank user | The list fields plus `reasonCode`, `reasonDescription`, `networkDeadline` and `documents[{name, processingStatus}]`. Documents are confirmed, live uploads only |
+| `GET /portal/cases/{caseId}/messages` | bank user | `[{messageId, senderType, body, createdAt}]`, oldest first. The analyst's identity is not shown. Poll for updates |
+| `POST /portal/cases/{caseId}/messages` body `{body}` | bank user | **201**. 1–2,000 characters; no card numbers |
+| `POST /portal/cases/{caseId}/support-ticket` body `{subject, body}` | bank user | **202** `{ticketId: "STUB-<uuid>"}`. Details below |
+| `GET /cases/{caseId}/messages` | `VIEW_CASES`, processor/admin | Same thread, including `senderId` |
+| `POST /cases/{caseId}/messages` body `{body}` | `VIEW_CASES`, processor/admin | **201** analyst reply (`senderType: ANALYST`) |
+
+**What the portal never shows:** internal notes, triage or AI fields, review rationale, the assignee, S3 keys and classification details.
+
+**Status:** `status` is the raw case status until a bank-facing vocabulary is approved.
+
+**Messages:**
+- They are append-only; edits and deletes are refused by the database.
+- `senderType` comes from the caller, never from the request body.
+
+**Support tickets (`KNOWN_LIMITATION_ZENDESK_`):**
+- No ticket is created in Zendesk.
+- The subject and body are recorded on the internal case timeline (`case.support.requested`) for the future integration.
+- The application log records ids and sizes only.
+
+**Not available yet:** document upload from the portal, email notifications and real-time push.

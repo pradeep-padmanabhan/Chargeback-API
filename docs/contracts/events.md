@@ -66,6 +66,8 @@ Every `data` object also repeats the envelope's base fields (`eventId`, `eventTy
 | `user.updated` | `userId`, `changedFields` (`fullName`, `status`), `fromStatus`, `toStatus`, `updatedBy` |
 | `user.role.changed` | `userId`, `fromRoleId`, `toRoleId`, `changedBy` (immutable audit of every role change) |
 | `user.deleted` | `userId`, `deletedBy` |
+| `case.message.posted` | `messageId`, `senderType` (BANK_USER/ANALYST), `senderId` (the text stays in `portal_messages`) |
+| `case.support.requested` | `ticketId` (`STUB-…`), `subject`, `body`, `requestedBy`. The payload is kept for the future Zendesk integration |
 | `case.review.decided` | `decisionId`, `decision` (APPROVED/REJECTED), `reasonCodeId` (null on reject), `rationale`, `reviewedBy` |
 
 The `triage.completed` sub-objects:

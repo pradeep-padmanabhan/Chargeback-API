@@ -57,3 +57,8 @@ Also needed: the role → permission matrix and the processor-to-bank scope matr
 - **Now unused but still seeded:** `VIEW_BANKS`, `CREATE_BANK_USER`, `UPDATE_BANK_USER` and `DISABLE_BANK_USER`. No role holds them and no endpoint checks them. Whether to retire them is open (guide §8 #36).
 - **New role:** migration 0008 adds the BANK-type `Bank User` role with no permissions. A user's role type must match the user type, and §3.1 says bank users hold no permissions.
 - **Bank-admin role:** deferred pending product approval (§8 #33).
+
+## Client Portal decision (2026-10-04)
+- **Portal endpoints** carry no permission code. The gate is `userType = BANK` plus the user's own bank (`users.bank_id`).
+- **Analyst message endpoints** (`GET/POST /cases/{id}/messages`) use `VIEW_CASES`, as briefed.
+- **`SEND_PORTAL_MESSAGE`** remains proposed and unused (guide §8 #39).

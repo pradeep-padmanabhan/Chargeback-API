@@ -54,6 +54,11 @@ Do these before starting new phases. Each needs tests, and OpenAPI and `docs/con
    - Bank list and detail, plus bank-user list, invite, update and soft delete (`MANAGE_BANK_USERS`), and `GET /admin/roles`.
    - Migration 0008.
    - Still stubbed: bank creation, bank-scope grants, scheme rules. Open: bank-admin role (§8 #33), Cognito provisioning (§8 #34).
+5. ~~**Client Portal & Communications**~~ **Done.**
+   - Bank-user portal: case list and detail, message thread, support-ticket stub (`KNOWN_LIMITATION_ZENDESK_`).
+   - Analyst thread endpoints (`VIEW_CASES`).
+   - Migration 0009: append-only `portal_messages`.
+   - RLS deferred to ADR-0006. Open: portal status vocabulary (§8 #37), Zendesk (§8 #38).
 
 ## Idempotency key store (ADR-0106): implemented
 - Migration 0004 adds the `idempotency_keys` table. `IdempotencyBehavior` sits between Authorization and Transaction.

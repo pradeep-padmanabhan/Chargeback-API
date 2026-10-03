@@ -1,60 +1,27 @@
 using Carter;
 using Chargeback.Api.Common.Endpoints;
-using Chargeback.Api.Common.Messaging;
 using Chargeback.Api.Common.Paging;
 using Chargeback.Api.Common.Results;
-using Chargeback.Api.Common.Security;
 using Chargeback.Api.Features.ClientPortal.Contracts;
-using Chargeback.Infrastructure.Security;
 using Chargeback.SharedKernel.Paging;
-using Chargeback.SharedKernel.Results;
-using Chargeback.SharedKernel.Security;
 using MediatR;
 
 namespace Chargeback.Api.Features.ClientPortal;
 
-// Phase 4 contract stubs (Phase 11: Client Portal & Communications).
-// Portal notifications have no baseline table and are not in the contract yet (ADR-0114).
-
-[RequirePermission(Permissions.ViewCases)]
-[RestrictToUserTypes(UserType.Bank)]
-public sealed record ListPortalCasesQuery(PageRequest Page) : IQuery<PagedResult<PortalCaseSummaryDto>>, IScopeFilteredRequest, IPagedRequest
+public static class ClientPortalServiceRegistration
 {
-    public static readonly SortMap Sorts = new(
-        "c.id", ("createdAt", "c.created_at"), ("updatedAt", "c.updated_at"), ("caseReference", "c.case_reference"), ("status", "c.status"));
-
-    public SortMap Sort => Sorts;
+    public static IServiceCollection AddClientPortalSlice(this IServiceCollection services)
+    {
+        services.AddScoped<CaseThread>();
+        return services;
+    }
 }
 
-[RequirePermission(Permissions.ViewCases)]
-[RestrictToUserTypes(UserType.Bank)]
-public sealed record GetPortalCaseQuery(Guid CaseId) : IQuery<PortalCaseDetailDto>, IResourceScopedRequest
-{
-    public ScopedResource Resource => new(ScopedResourceKind.Case, CaseId);
-}
-
-/// <summary>Case message thread; used by bank users (portal) and processor analysts.</summary>
-[RequirePermission(Permissions.ViewCases)]
-public sealed record ListCaseMessagesQuery(Guid CaseId) : IQuery<IReadOnlyList<PortalMessageDto>>, IResourceScopedRequest
-{
-    public ScopedResource Resource => new(ScopedResourceKind.Case, CaseId);
-}
-
-/// <summary>Sender type is taken from the authenticated user, never from the request.</summary>
-[RequirePermission(Permissions.SendPortalMessage)]
-public sealed record PostCaseMessageCommand(Guid CaseId, PostMessageRequest Body) : ICommand<PortalMessageDto>, IResourceScopedRequest, ITransactionalCommand
-{
-    public ScopedResource Resource => new(ScopedResourceKind.Case, CaseId);
-}
-
-internal sealed class ListPortalCasesHandler : NotImplementedHandler<ListPortalCasesQuery, Result<PagedResult<PortalCaseSummaryDto>>>;
-
-internal sealed class GetPortalCaseHandler : NotImplementedHandler<GetPortalCaseQuery, Result<PortalCaseDetailDto>>;
-
-internal sealed class ListCaseMessagesHandler : NotImplementedHandler<ListCaseMessagesQuery, Result<IReadOnlyList<PortalMessageDto>>>;
-
-internal sealed class PostCaseMessageHandler : NotImplementedHandler<PostCaseMessageCommand, Result<PortalMessageDto>>;
-
+/// <summary>
+/// Client Portal &amp; Communications (common guide §6 Act 7). Bank users get a curated, read-only view of their own bank's
+/// cases and a two-way message thread; analysts reply through the internal thread endpoints. Portal notifications are not
+/// in the contract yet (ADR-0114); document upload from the portal and email notifications are out of scope.
+/// </summary>
 public sealed class ClientPortalModule : ICarterModule
 {
     private const string StubPhase = "Phase 11 (Client Portal & Communications)";
@@ -63,28 +30,37 @@ public sealed class ClientPortalModule : ICarterModule
     {
         var portal = app.MapGroup($"{EndpointConventions.ApiPrefix}/portal").WithTags("ClientPortal");
 
-        portal.MapGet("/cases", (int? page, int? pageSize, string? sortBy, string? sortDirection, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new ListPortalCasesQuery(new PageRequest(page, pageSize, sortBy, sortDirection)), http))
-            .WithContract<PagedResult<PortalCaseSummaryDto>>("listPortalCases", "Own bank's cases (bank users)")
-            .WithSortFields(ListPortalCasesQuery.Sorts)
-            .AsStub(StubPhase);
+        portal.MapGet("/cases", (string? status, int? page, int? pageSize, string? sortBy, string? sortDirection, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new ListPortalCasesQuery(status, new PageRequest(page, pageSize, sortBy, sortDirection)), http))
+            .WithContract<PagedResult<PortalCaseSummaryDto>>("listPortalCases", "Own bank's cases (bank users only)")
+            .WithSortFields(ListPortalCasesQuery.Sorts);
 
         portal.MapGet("/cases/{caseId:guid}", (Guid caseId, ISender sender, HttpContext http) =>
                 Dispatch.Send(sender, new GetPortalCaseQuery(caseId), http))
-            .WithContract<PortalCaseDetailDto>("getPortalCase", "Curated, bank-safe case view")
-            .AsStub(StubPhase);
+            .WithContract<PortalCaseDetailDto>("getPortalCase", "Curated, bank-safe case view (404 for another bank's case)");
 
-        var messages = app.MapGroup(EndpointConventions.ApiPrefix).WithTags("ClientPortal");
+        portal.MapGet("/cases/{caseId:guid}/messages", (Guid caseId, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new ListPortalMessagesQuery(caseId), http))
+            .WithContract<IReadOnlyList<PortalMessageDto>>("listPortalMessages", "Case message thread, oldest first (bank users; poll for updates)");
 
-        messages.MapGet("/cases/{caseId:guid}/messages", (Guid caseId, ISender sender, HttpContext http) =>
+        portal.MapPost("/cases/{caseId:guid}/messages", (Guid caseId, PostMessageRequest body, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new PostPortalMessageCommand(caseId, body), http,
+                    dto => TypedResults.Created($"/api/v1/portal/cases/{caseId}/messages", dto)))
+            .WithContract<PortalMessageDto>("postPortalMessage", "Bank user posts a message (1-2000 characters)", StatusCodes.Status201Created);
+
+        portal.MapPost("/cases/{caseId:guid}/support-ticket", (Guid caseId, SupportTicketRequest body, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new CreateSupportTicketCommand(caseId, body), http, dto => TypedResults.Accepted((string?)null, dto)))
+            .WithContract<SupportTicketAcceptedDto>("createSupportTicket", "Raise a support ticket (KNOWN_LIMITATION_ZENDESK_: returns STUB-<uuid>)", StatusCodes.Status202Accepted);
+
+        var thread = app.MapGroup($"{EndpointConventions.ApiPrefix}/cases").WithTags("ClientPortal");
+
+        thread.MapGet("/{caseId:guid}/messages", (Guid caseId, ISender sender, HttpContext http) =>
                 Dispatch.Send(sender, new ListCaseMessagesQuery(caseId), http))
-            .WithContract<IReadOnlyList<PortalMessageDto>>("listCaseMessages", "Two-way case message thread")
-            .AsStub(StubPhase);
+            .WithContract<IReadOnlyList<CaseMessageDto>>("listCaseMessages", "Case message thread for analysts (VIEW_CASES)");
 
-        messages.MapPost("/cases/{caseId:guid}/messages", (Guid caseId, PostMessageRequest body, ISender sender, HttpContext http) =>
+        thread.MapPost("/{caseId:guid}/messages", (Guid caseId, PostMessageRequest body, ISender sender, HttpContext http) =>
                 Dispatch.Send(sender, new PostCaseMessageCommand(caseId, body), http, dto => TypedResults.Created($"/api/v1/cases/{caseId}/messages", dto)))
-            .WithContract<PortalMessageDto>("postCaseMessage", "Post a message to the case thread", StatusCodes.Status201Created)
-            .AsStub(StubPhase);
+            .WithContract<CaseMessageDto>("postCaseMessage", "Analyst replies on the case thread (VIEW_CASES)", StatusCodes.Status201Created);
 
         // Anonymous at the HTTP layer by design: authenticity comes from the Zendesk HMAC signature and
         // replay protection (ADR-0107), verified before anything is persisted.

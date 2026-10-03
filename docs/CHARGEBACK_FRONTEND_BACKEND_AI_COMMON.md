@@ -311,6 +311,7 @@ The companion `CHARGEBACK_DIAGRAM_BASELINE.sql` creates a **fresh, standalone di
 | `0006_human_review.sql` | `REVIEW_CASE` for all four roles; append-only `case_review_decisions` (ADR-0101) |
 | `0007_evidence_documents.sql` | `UPLOAD_DOCUMENT`, `VIEW_DOCUMENTS` for all four roles; `documents.upload_status` / `upload_confirmed_at` / `deleted_at` / `deleted_by`; immutable upload-stage trigger (ADR-0104); append-only `document_classifications` |
 | `0008_admin_user_management.sql` | `MANAGE_BANK_USERS` for all four roles; BANK-type `Bank User` role (no permissions); `users.invited_at` / `deleted_at` / `deleted_by`; deleted ⇒ DISABLED |
+| `0009_portal_messages.sql` | `portal_messages`: 1–2000 character CHECK, case index, append-only trigger; RLS deferred to ADR-0006 |
 
 **Complete install** = 0001 followed by every `db/migrations/NNNN_*.sql` in order. All scripts are idempotent and transactional; the application never runs DDL (ADR-0004). Integration tests build every ephemeral database the same way. Migration tooling (Flyway, DbUp or other) is still open (§8 #25).
 
@@ -469,6 +470,10 @@ flowchart TD
 | 34 | Cognito provisioning: invite email, identity linking for invited users (placeholder `pending-invite:` sub) | **Open** — `KNOWN_LIMITATION_INVITE_EMAIL_` |
 | 35 | Session revocation on deactivation (Cognito global sign-out) | **Open** — the API refuses a deactivated user on the next request; tokens are not revoked |
 | 36 | Retire unused seeded permissions `VIEW_BANKS`, `CREATE_BANK_USER`, `UPDATE_BANK_USER`, `DISABLE_BANK_USER` | **Open** |
+| 37 | Bank-facing case status vocabulary for the Client Portal (ADR-0110) | **Open** — the portal shows raw case statuses |
+| 38 | Zendesk integration: account, credentials, field mapping, ticket ↔ case linking (`zendesk_tickets`) and signed webhook (ADR-0107) | **Open** — `KNOWN_LIMITATION_ZENDESK_` stub |
+| 39 | `SEND_PORTAL_MESSAGE` (proposed): needed, or is `VIEW_CASES` enough for analyst replies? | **Open** — analyst replies use `VIEW_CASES` today |
+| 40 | Portal notifications and email (ADR-0114), and portal document upload | **Held** — notifications depend on Cognito invites (§8 #34) |
 
 **Resolved in v1.5:**
 - Role matrix seeded by migration 0005; `VIEW_TRIAGE` and `RETRIAGE_CASE` defined → §3.1, §5

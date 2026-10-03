@@ -10,6 +10,7 @@
 | 0006 | [`0006_human_review.sql`](0006_human_review.sql) | `REVIEW_CASE` for all four roles; append-only `case_review_decisions` table (ADR-0101), with a trigger that refuses UPDATE and DELETE | Approved; not executed |
 | 0007 | [`0007_evidence_documents.sql`](0007_evidence_documents.sql) | `UPLOAD_DOCUMENT` and `VIEW_DOCUMENTS` for all four roles. `documents` gains `upload_status`, `upload_confirmed_at`, `deleted_at` and `deleted_by`, plus a trigger: upload-stage fields are immutable, upload status only moves forward, rows are never deleted. New append-only `document_classifications` table | Approved; not executed |
 | 0008 | [`0008_admin_user_management.sql`](0008_admin_user_management.sql) | `MANAGE_BANK_USERS` for all four roles. Permissionless BANK-type `Bank User` role. `users.invited_at`, `deleted_at`, `deleted_by`, plus a CHECK that a deleted user is DISABLED | Approved; not executed |
+| 0009 | [`0009_portal_messages.sql`](0009_portal_messages.sql) | The baseline `portal_messages` thread: 1–2,000 character CHECK, case index, append-only trigger. RLS deferred to ADR-0006 | Approved; not executed |
 
 Migration 0003 adds:
 - the `ASSIGN_CASE` permission, not assigned to any role;

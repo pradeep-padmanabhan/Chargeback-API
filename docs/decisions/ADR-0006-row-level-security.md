@@ -23,3 +23,6 @@ Application-level scope checks are implemented and tested. CLAUDE.md requires da
 ## Impact
 
 Every query must run inside a transaction, or have its connection-level setting reset, so settings cannot leak across pooled connections. The approach needs a decision before Phase 5 data is shared.
+
+## Note (2026-10-04)
+RLS for the portal message thread was requested in migration 0009. It was **deferred to this ADR**, so that every bank-owned table is protected together under one design: database roles plus a per-transaction `app.bank_ids`. Until then, bank scope is enforced in the application and covered by integration tests. That includes bank users reaching only their own bank's thread, and another bank's case returning 404.

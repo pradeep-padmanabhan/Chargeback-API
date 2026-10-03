@@ -7,6 +7,7 @@ using Chargeback.Api.Common.OpenApi;
 using Chargeback.Api.Common.Results;
 using Chargeback.Api.Common.Security;
 using Chargeback.Api.Features.Cases;
+using Chargeback.Api.Features.ClientPortal;
 using Chargeback.Api.Features.Documents;
 using Chargeback.Api.Features.Intake;
 using Chargeback.Api.Features.Triage;
@@ -49,6 +50,7 @@ public static class ApiServiceRegistration
         services.AddTriageSlice();
         services.AddCasesSlice();
         services.AddDocumentsSlice();
+        services.AddClientPortalSlice();
         return services;
     }
 

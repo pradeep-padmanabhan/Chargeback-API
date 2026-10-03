@@ -9,6 +9,7 @@ using Chargeback.Infrastructure.Persistence.Interceptors;
 using Chargeback.Infrastructure.Persistence.Queries;
 using Chargeback.Infrastructure.Security;
 using Chargeback.Infrastructure.Storage;
+using Chargeback.Infrastructure.Support;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -75,6 +76,9 @@ public static class DependencyInjection
 
         // Evidence storage: KNOWN_LIMITATION_S3_ stub until bucket names and IAM policy are confirmed.
         services.TryAddSingleton<IS3Service, KnownLimitationS3Service>();
+
+        // Support tickets: KNOWN_LIMITATION_ZENDESK_ stub until a Zendesk account and field mapping are approved.
+        services.TryAddSingleton<IZendeskClient, KnownLimitationZendeskClient>();
 
         // ADR-0106 nightly purge (idempotency keys + processed events, 90 days).
         services.AddOptions<IdempotencyOptions>().Bind(configuration.GetSection(IdempotencyOptions.SectionName));

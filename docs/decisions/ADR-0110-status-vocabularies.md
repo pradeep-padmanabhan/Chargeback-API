@@ -75,3 +75,6 @@ The transition table above is **approved**, with one change: `FILED → CLOSED` 
 - **Rationale:** required for `CLOSE`, optional for `START_REVIEW` (recorded as `reason`, null if absent).
 - **`validActions`** replaces `allowedAnalystTransitions` on the case detail. It is computed per caller: `UPDATE_CASE_STATUS` for `START_REVIEW`/`CLOSE`, admin user type for FILED → `CLOSE`, `REVIEW_CASE` for `APPROVE`/`REJECT`, `SUBMIT_MASTERCOM` for `FILE`. Bank users get none.
 - **Still open:** what `FLAG` and `UNFLAG` move between, direct close of NEW/FLAGGED/UNDER_REVIEW, and the status effect of the `Invalid` and `AutoRefund` triage outcomes.
+
+## Client Portal (2026-10-04)
+The portal returns the **raw case status** for now. The bank-facing vocabulary, meaning which values banks see and how internal statuses map to them, is still open (guide §8 #37).

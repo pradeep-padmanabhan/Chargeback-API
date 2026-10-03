@@ -417,6 +417,42 @@
         ],
         "type": "object"
       },
+      "CaseMessageDto": {
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "caseId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "messageId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "senderId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "senderType": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "messageId",
+          "caseId",
+          "senderType",
+          "senderId",
+          "body",
+          "createdAt"
+        ],
+        "type": "object"
+      },
       "CaseSummaryDto": {
         "properties": {
           "assignedTo": {
@@ -1380,12 +1416,6 @@
         "type": "object"
       },
       "JsonElement": {},
-      "MessageSenderType": {
-        "enum": [
-          "Bank",
-          "Processor"
-        ]
-      },
       "NullableOfDocumentStage": {
         "enum": [
           "Initial",
@@ -1623,80 +1653,47 @@
       },
       "PortalCaseDetailDto": {
         "properties": {
-          "cardNumberMasked": {
-            "nullable": true,
-            "type": "string"
-          },
-          "caseReference": {
-            "description": "Case reference CB-{YYYY}-{NNNNNN}: UTC year of creation and a global, non-resetting database sequence (ADR-0125).",
-            "pattern": "^CB-\\d{4}-\\d{6}$",
-            "type": "string"
-          },
-          "currencyCode": {
-            "nullable": true,
-            "type": "string"
-          },
-          "documentChecklist": {
-            "items": {
-              "$ref": "#/components/schemas/PortalDocumentSlotDto"
-            },
-            "type": "array"
-          },
-          "id": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "merchantName": {
-            "nullable": true,
-            "type": "string"
-          },
-          "progress": {
-            "items": {
-              "$ref": "#/components/schemas/PortalProgressEntryDto"
-            },
-            "type": "array"
-          },
-          "status": {
-            "type": "string"
-          },
-          "transactionAmount": {
+          "amount": {
             "format": "double",
             "nullable": true,
             "type": "number"
           },
-          "transactionDate": {
-            "format": "date-time",
-            "nullable": true,
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "caseReference",
-          "status",
-          "cardNumberMasked",
-          "transactionDate",
-          "transactionAmount",
-          "currencyCode",
-          "merchantName",
-          "progress",
-          "documentChecklist"
-        ],
-        "type": "object"
-      },
-      "PortalCaseSummaryDto": {
-        "properties": {
-          "caseReference": {
-            "description": "Case reference CB-{YYYY}-{NNNNNN}: UTC year of creation and a global, non-resetting database sequence (ADR-0125).",
-            "pattern": "^CB-\\d{4}-\\d{6}$",
+          "caseId": {
+            "format": "uuid",
             "type": "string"
           },
           "createdAt": {
             "format": "date-time",
             "type": "string"
           },
-          "id": {
-            "format": "uuid",
+          "currency": {
+            "nullable": true,
+            "type": "string"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/PortalDocumentDto"
+            },
+            "type": "array"
+          },
+          "merchantName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "networkDeadline": {
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          },
+          "reasonCode": {
+            "nullable": true,
+            "type": "string"
+          },
+          "reasonDescription": {
+            "nullable": true,
+            "type": "string"
+          },
+          "referenceNumber": {
             "type": "string"
           },
           "status": {
@@ -1708,72 +1705,28 @@
           }
         },
         "required": [
-          "id",
-          "caseReference",
+          "caseId",
+          "referenceNumber",
           "status",
+          "amount",
+          "currency",
+          "merchantName",
           "createdAt",
-          "updatedAt"
-        ],
-        "type": "object"
-      },
-      "PortalDocumentDto": {
-        "properties": {
-          "documentStatus": {
-            "$ref": "#/components/schemas/DocumentStatus"
-          },
-          "fileName": {
-            "type": "string"
-          },
-          "id": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "schemeStage": {
-            "$ref": "#/components/schemas/DocumentStage"
-          },
-          "uploadedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "fileName",
-          "schemeStage",
-          "documentStatus",
-          "uploadedAt"
-        ],
-        "type": "object"
-      },
-      "PortalDocumentSlotDto": {
-        "properties": {
-          "documents": {
-            "items": {
-              "$ref": "#/components/schemas/PortalDocumentDto"
-            },
-            "type": "array"
-          },
-          "id": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "isRequired": {
-            "type": "boolean"
-          },
-          "slotName": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "slotName",
-          "isRequired",
+          "updatedAt",
+          "reasonCode",
+          "reasonDescription",
+          "networkDeadline",
           "documents"
         ],
         "type": "object"
       },
-      "PortalMessageDto": {
+      "PortalCaseSummaryDto": {
         "properties": {
+          "amount": {
+            "format": "double",
+            "nullable": true,
+            "type": "number"
+          },
           "caseId": {
             "format": "uuid",
             "type": "string"
@@ -1782,56 +1735,86 @@
             "format": "date-time",
             "type": "string"
           },
-          "id": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "messageText": {
-            "type": "string"
-          },
-          "senderId": {
-            "format": "uuid",
+          "currency": {
             "nullable": true,
             "type": "string"
           },
-          "senderType": {
-            "$ref": "#/components/schemas/MessageSenderType"
+          "merchantName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "referenceNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
           }
         },
         "required": [
-          "id",
           "caseId",
-          "senderType",
-          "senderId",
-          "messageText",
-          "createdAt"
+          "referenceNumber",
+          "status",
+          "amount",
+          "currency",
+          "merchantName",
+          "createdAt",
+          "updatedAt"
         ],
         "type": "object"
       },
-      "PortalProgressEntryDto": {
+      "PortalDocumentDto": {
         "properties": {
-          "occurredAt": {
+          "name": {
+            "type": "string"
+          },
+          "processingStatus": {
+            "$ref": "#/components/schemas/DocumentStatus"
+          }
+        },
+        "required": [
+          "name",
+          "processingStatus"
+        ],
+        "type": "object"
+      },
+      "PortalMessageDto": {
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
             "format": "date-time",
             "type": "string"
           },
-          "stage": {
+          "messageId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "senderType": {
             "type": "string"
           }
         },
         "required": [
-          "stage",
-          "occurredAt"
+          "messageId",
+          "senderType",
+          "body",
+          "createdAt"
         ],
         "type": "object"
       },
       "PostMessageRequest": {
         "properties": {
-          "messageText": {
+          "body": {
+            "nullable": true,
             "type": "string"
           }
         },
         "required": [
-          "messageText"
+          "body"
         ],
         "type": "object"
       },
@@ -2394,6 +2377,34 @@
           "currencyCode",
           "acquirerReferenceNumber",
           "merchantName"
+        ],
+        "type": "object"
+      },
+      "SupportTicketAcceptedDto": {
+        "properties": {
+          "ticketId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticketId"
+        ],
+        "type": "object"
+      },
+      "SupportTicketRequest": {
+        "properties": {
+          "body": {
+            "nullable": true,
+            "type": "string"
+          },
+          "subject": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "body"
         ],
         "type": "object"
       },
@@ -4931,7 +4942,6 @@
     },
     "/api/v1/cases/{caseId}/messages": {
       "get": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 11 (Client Portal \u0026 Communications).",
         "operationId": "listCaseMessages",
         "parameters": [
           {
@@ -4959,7 +4969,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/PortalMessageDto"
+                    "$ref": "#/components/schemas/CaseMessageDto"
                   },
                   "type": "array"
                 }
@@ -5006,25 +5016,14 @@
               }
             },
             "description": "Not Found"
-          },
-          "501": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
-        "summary": "Two-way case message thread",
+        "summary": "Case message thread for analysts (VIEW_CASES)",
         "tags": [
-          "Stub"
+          "ClientPortal"
         ]
       },
       "post": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 11 (Client Portal \u0026 Communications).",
         "operationId": "postCaseMessage",
         "parameters": [
           {
@@ -5061,7 +5060,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PortalMessageDto"
+                  "$ref": "#/components/schemas/CaseMessageDto"
                 }
               }
             },
@@ -5106,21 +5105,11 @@
               }
             },
             "description": "Not Found"
-          },
-          "501": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
-        "summary": "Post a message to the case thread",
+        "summary": "Analyst replies on the case thread (VIEW_CASES)",
         "tags": [
-          "Stub"
+          "ClientPortal"
         ]
       }
     },
@@ -6689,9 +6678,15 @@
     },
     "/api/v1/portal/cases": {
       "get": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 11 (Client Portal \u0026 Communications).",
         "operationId": "listPortalCases",
         "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "description": "1-based page number (default 1); values below 1 return 400.",
             "in": "query",
@@ -6724,7 +6719,7 @@
               "enum": [
                 "createdAt",
                 "updatedAt",
-                "caseReference",
+                "referenceNumber",
                 "status"
               ],
               "type": "string"
@@ -6803,27 +6798,16 @@
               }
             },
             "description": "Not Found"
-          },
-          "501": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
-        "summary": "Own bank\u0027s cases (bank users)",
+        "summary": "Own bank\u0027s cases (bank users only)",
         "tags": [
-          "Stub"
+          "ClientPortal"
         ]
       }
     },
     "/api/v1/portal/cases/{caseId}": {
       "get": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 11 (Client Portal \u0026 Communications).",
         "operationId": "getPortalCase",
         "parameters": [
           {
@@ -6895,8 +6879,62 @@
               }
             },
             "description": "Not Found"
+          }
+        },
+        "summary": "Curated, bank-safe case view (404 for another bank\u0027s case)",
+        "tags": [
+          "ClientPortal"
+        ]
+      }
+    },
+    "/api/v1/portal/cases/{caseId}/messages": {
+      "get": {
+        "operationId": "listPortalMessages",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           },
-          "501": {
+          {
+            "description": "Optional caller correlation id (1-64 chars [A-Za-z0-9._-]); echoed in the response.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PortalMessageDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -6904,12 +6942,212 @@
                 }
               }
             },
-            "description": "Not Implemented"
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         },
-        "summary": "Curated, bank-safe case view",
+        "summary": "Case message thread, oldest first (bank users; poll for updates)",
         "tags": [
-          "Stub"
+          "ClientPortal"
+        ]
+      },
+      "post": {
+        "operationId": "postPortalMessage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional caller correlation id (1-64 chars [A-Za-z0-9._-]); echoed in the response.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalMessageDto"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "Bank user posts a message (1-2000 characters)",
+        "tags": [
+          "ClientPortal"
+        ]
+      }
+    },
+    "/api/v1/portal/cases/{caseId}/support-ticket": {
+      "post": {
+        "operationId": "createSupportTicket",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional caller correlation id (1-64 chars [A-Za-z0-9._-]); echoed in the response.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportTicketRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportTicketAcceptedDto"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "Raise a support ticket (KNOWN_LIMITATION_ZENDESK_: returns STUB-\u003Cuuid\u003E)",
+        "tags": [
+          "ClientPortal"
         ]
       }
     },
@@ -7480,6 +7718,9 @@
     },
     {
       "name": "Document"
+    },
+    {
+      "name": "ClientPortal"
     },
     {
       "name": "Case"
