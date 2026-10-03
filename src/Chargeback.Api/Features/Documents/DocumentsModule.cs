@@ -1,91 +1,62 @@
 using Carter;
 using Chargeback.Api.Common.Endpoints;
-using Chargeback.Api.Common.Messaging;
 using Chargeback.Api.Common.Results;
-using Chargeback.Api.Common.Security;
 using Chargeback.Api.Features.Documents.Contracts;
-using Chargeback.Infrastructure.Security;
-using Chargeback.SharedKernel.Results;
-using Chargeback.SharedKernel.Security;
+using Chargeback.Api.Features.Documents.Queries;
+using Chargeback.Api.Features.Documents.Upload;
 using MediatR;
 
 namespace Chargeback.Api.Features.Documents;
 
-// Phase 4 contract stubs (Phase 8: Evidence & Documents). Upload uses pre-signed S3 URLs so file
-// bytes never pass through a database transaction; OCR/classification run asynchronously.
-
-[RequirePermission(Permissions.ViewCases)]
-public sealed record GetDocumentSlotsQuery(Guid CaseId) : IQuery<IReadOnlyList<DocumentSlotDto>>, IResourceScopedRequest
+public static class DocumentsServiceRegistration
 {
-    public ScopedResource Resource => new(ScopedResourceKind.Case, CaseId);
+    public static IServiceCollection AddDocumentsSlice(this IServiceCollection services)
+    {
+        services.AddOptions<DocumentOptions>().BindConfiguration(DocumentOptions.SectionName);
+        services.AddScoped<DocumentReader>();
+        services.AddScoped<IDocumentChecklistReader, DocumentChecklistReader>();
+        return services;
+    }
 }
 
-[RequirePermission(Permissions.UploadDocument)]
-public sealed record CreateDocumentUploadCommand(Guid CaseId, CreateDocumentUploadRequest Body) : ICommand<DocumentUploadTicketDto>, IResourceScopedRequest
-{
-    public ScopedResource Resource => new(ScopedResourceKind.Case, CaseId);
-}
-
-[RequirePermission(Permissions.UploadDocument)]
-public sealed record CompleteDocumentUploadCommand(Guid DocumentId) : ICommand<DocumentDto>, IResourceScopedRequest
-{
-    public ScopedResource Resource => new(ScopedResourceKind.Document, DocumentId);
-}
-
-[RequirePermission(Permissions.ViewCases)]
-public sealed record GetDocumentQuery(Guid DocumentId) : IQuery<DocumentDto>, IResourceScopedRequest
-{
-    public ScopedResource Resource => new(ScopedResourceKind.Document, DocumentId);
-}
-
-[RequirePermission(Permissions.UploadDocument)]
-[RestrictToUserTypes(UserType.Processor, UserType.Admin)]
-public sealed record ReprocessDocumentCommand(Guid DocumentId) : ICommand<DocumentDto>, IResourceScopedRequest
-{
-    public ScopedResource Resource => new(ScopedResourceKind.Document, DocumentId);
-}
-
-internal sealed class GetDocumentSlotsHandler : NotImplementedHandler<GetDocumentSlotsQuery, Result<IReadOnlyList<DocumentSlotDto>>>;
-
-internal sealed class CreateDocumentUploadHandler : NotImplementedHandler<CreateDocumentUploadCommand, Result<DocumentUploadTicketDto>>;
-
-internal sealed class CompleteDocumentUploadHandler : NotImplementedHandler<CompleteDocumentUploadCommand, Result<DocumentDto>>;
-
-internal sealed class GetDocumentHandler : NotImplementedHandler<GetDocumentQuery, Result<DocumentDto>>;
-
-internal sealed class ReprocessDocumentHandler : NotImplementedHandler<ReprocessDocumentCommand, Result<DocumentDto>>;
-
+/// <summary>
+/// Evidence &amp; Documents (common guide §6 Act 4). Files go straight to S3 through one-time pre-signed URLs; the API
+/// never streams them. OCR/classification runs asynchronously after the upload is confirmed.
+/// </summary>
 public sealed class DocumentsModule : ICarterModule
 {
-    private const string StubPhase = "Phase 8 (Evidence & Documents)";
-
     public void AddRoutes(IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup(EndpointConventions.ApiPrefix).WithTags("Document");
+        var group = app.MapGroup($"{EndpointConventions.ApiPrefix}/cases/{{caseId:guid}}/documents").WithTags("Document");
 
-        group.MapGet("/cases/{caseId:guid}/document-slots", (Guid caseId, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new GetDocumentSlotsQuery(caseId), http))
-            .WithContract<IReadOnlyList<DocumentSlotDto>>("getDocumentSlots", "Case document checklist with uploaded documents")
-            .AsStub(StubPhase);
+        group.MapPost("/", (Guid caseId, CreateDocumentUploadRequest body, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new CreateDocumentUploadCommand(caseId, body), http,
+                    dto => TypedResults.Created($"/api/v1/cases/{caseId}/documents/{dto.DocumentId}", dto)))
+            .WithContract<DocumentUploadTicketDto>("createDocumentUpload", "Declare an upload; returns a one-time pre-signed PUT URL (UPLOAD_DOCUMENT)", StatusCodes.Status201Created)
+            .WithDescription(
+                "Body {documentSlotId?, fileName, mimeType, fileSizeBytes, schemeStage}. MIME types: PDF, JPEG, PNG, TIFF; size up to the " +
+                "configured maximum (default 25 MB). The document starts PENDING_UPLOAD; upload the bytes to uploadUrl with requiredHeaders " +
+                "before expiresAt (15 minutes), then POST …/uploaded. 422 DOCUMENT_SLOT_NOT_IN_CASE.")
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
-        group.MapPost("/cases/{caseId:guid}/documents", (Guid caseId, CreateDocumentUploadRequest body, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new CreateDocumentUploadCommand(caseId, body), http, dto => TypedResults.Created($"/api/v1/documents/{dto.DocumentId}", dto)))
-            .WithContract<DocumentUploadTicketDto>("createDocumentUpload", "Register a document and get a pre-signed upload URL", StatusCodes.Status201Created)
-            .AsStub(StubPhase);
+        group.MapPost("/{documentId:guid}/uploaded", (Guid caseId, Guid documentId, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new ConfirmDocumentUploadCommand(caseId, documentId), http))
+            .WithContract<DocumentDto>("confirmDocumentUpload", "Confirm the S3 upload; starts asynchronous OCR/classification (UPLOAD_DOCUMENT)")
+            .WithDescription("PENDING_UPLOAD → UPLOADED. Idempotent. 422 UPLOAD_NOT_FOUND when the object is not in S3 yet.")
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
-        group.MapPost("/documents/{documentId:guid}/upload-completion", (Guid documentId, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new CompleteDocumentUploadCommand(documentId), http))
-            .WithContract<DocumentDto>("completeDocumentUpload", "Confirm the S3 upload; starts asynchronous OCR/classification")
-            .AsStub(StubPhase);
+        group.MapGet("/", (Guid caseId, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new GetCaseDocumentsQuery(caseId), http))
+            .WithContract<CaseDocumentsDto>("listCaseDocuments", "Checklist slots with fulfillment, and live documents with upload and processing status (VIEW_DOCUMENTS)");
 
-        group.MapGet("/documents/{documentId:guid}", (Guid documentId, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new GetDocumentQuery(documentId), http))
-            .WithContract<DocumentDto>("getDocument", "Document metadata, stage, processing status and advisory classification")
-            .AsStub(StubPhase);
+        group.MapGet("/{documentId:guid}", (Guid caseId, Guid documentId, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new GetCaseDocumentQuery(caseId, documentId), http))
+            .WithContract<DocumentDto>("getCaseDocument", "One document with its latest advisory classification (VIEW_DOCUMENTS)");
 
-        group.MapPost("/documents/{documentId:guid}/reprocessing", (Guid documentId, ISender sender, HttpContext http) =>
-                Dispatch.Send(sender, new ReprocessDocumentCommand(documentId), http))
-            .WithContract<DocumentDto>("reprocessDocument", "Retry failed OCR/classification")
-            .AsStub(StubPhase);
+        group.MapDelete("/{documentId:guid}", (Guid caseId, Guid documentId, ISender sender, HttpContext http) =>
+                Dispatch.Send(sender, new DeleteDocumentCommand(caseId, documentId), http, _ => TypedResults.NoContent()))
+            .WithContract<DocumentDto>("deleteCaseDocument", "Soft-delete a document before processing starts (UPLOAD_DOCUMENT)", StatusCodes.Status204NoContent)
+            .WithDescription("Allowed while PENDING_UPLOAD, or UPLOADED with processing Pending; otherwise 409 DOCUMENT_NOT_DELETABLE. The row is kept with deletedAt.")
+            .ProducesProblem(StatusCodes.Status409Conflict);
     }
 }

@@ -1,6 +1,8 @@
 using Chargeback.Api.Common.Security;
 using Chargeback.Api.Features.Cases.Contracts;
 using Chargeback.Api.Features.Cases.CreateCase;
+using Chargeback.Api.Features.Documents;
+using Chargeback.Api.Features.Documents.Processing;
 using Chargeback.Api.Features.Review.Decision;
 using Chargeback.Api.Features.Review.Summary;
 using Chargeback.Api.Features.Triage.EvaluateCaseTriage;
@@ -160,6 +162,51 @@ public sealed partial class ReviewSummaryConsumer(ISender sender, ILogger<Review
     private static partial void LogSkipped(ILogger logger, Guid eventId, string consumer);
 }
 
+/// <summary>
+/// Classifies a document after its upload is confirmed (<c>document.uploaded</c>). Fail-soft: when the capability is
+/// unavailable the document's processing status becomes Failed (AI_UNAVAILABLE) and nothing is retried.
+/// </summary>
+public sealed partial class DocumentClassificationConsumer(ISender sender, ILogger<DocumentClassificationConsumer> logger) : IIntegrationEventConsumer
+{
+    public const string ConsumerName = "document-classification";
+    public const string SourceEventType = "document.uploaded";
+
+    public string Name => ConsumerName;
+
+    public bool Handles(string eventType) => eventType == SourceEventType;
+
+    public async Task HandleAsync(IntegrationEventEnvelope envelope, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+        var documentId = envelope.Data.GetProperty("documentId").GetGuid();
+
+        Result<DocumentProcessingOutcome> result;
+        using (SystemExecution.Begin(ConsumerName))
+        {
+            result = await sender.Send(new ClassifyDocumentCommand(documentId, envelope.EventId, ConsumerName), cancellationToken);
+        }
+
+        if (result.IsSuccess)
+        {
+            LogOutcome(logger, documentId, result.Value);
+        }
+        else if (result.Error == DocumentErrors.AlreadyProcessed)
+        {
+            LogSkipped(logger, envelope.EventId, ConsumerName);
+        }
+        else
+        {
+            throw new RetryableConsumerException($"Classification of document {documentId} failed: {result.Error.Code}");
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Document {DocumentId} processing: {Outcome}")]
+    private static partial void LogOutcome(ILogger logger, Guid documentId, DocumentProcessingOutcome outcome);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Event {EventId} already processed by {Consumer}; skipped")]
+    private static partial void LogSkipped(ILogger logger, Guid eventId, string consumer);
+}
+
 public static class WorkerServiceRegistration
 {
     public static IServiceCollection AddWorkflowConsumers(this IServiceCollection services)
@@ -167,6 +214,7 @@ public static class WorkerServiceRegistration
         services.AddScoped<IIntegrationEventConsumer, CaseCreationConsumer>();
         services.AddScoped<IIntegrationEventConsumer, AutomaticTriageConsumer>();
         services.AddScoped<IIntegrationEventConsumer, ReviewSummaryConsumer>();
+        services.AddScoped<IIntegrationEventConsumer, DocumentClassificationConsumer>();
         return services;
     }
 }

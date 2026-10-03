@@ -33,6 +33,9 @@ public static class Permissions
     /// <summary>Human Review (approved 2026-10-03): defined in the baseline; assigned to all four roles by migration 0006.</summary>
     public const string ReviewCase = "REVIEW_CASE";
 
+    /// <summary>Evidence &amp; Documents (approved 2026-10-03): defined in the baseline; assigned to all four roles by migration 0007.</summary>
+    public const string ViewDocuments = "VIEW_DOCUMENTS";
+
     // ---- PROPOSED, NOT SEEDED (ADR-0111) -------------------------------------------------
     // Operations guarded by these are denied to every user until product/security approve the
     // names and seed them. Do not seed them from application code.
@@ -48,7 +51,7 @@ public static class Permissions
     [
         ViewBanks, ViewBankUsers, CreateBankUser, UpdateBankUser, DisableBankUser,
         ViewCases, UpdateCaseStatus, UploadDocument, SubmitMastercom, ViewReports, CreateDispute, AssignCase,
-        ViewTriage, RetriageCase, ReviewCase,
+        ViewTriage, RetriageCase, ReviewCase, ViewDocuments,
     ];
 
     public static readonly IReadOnlyList<string> Proposed =

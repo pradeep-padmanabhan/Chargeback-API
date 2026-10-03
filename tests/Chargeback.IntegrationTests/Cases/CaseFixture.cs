@@ -22,10 +22,14 @@ public sealed class CaseFixture : TriageFixture
     /// <summary>SYNTHETIC host only: the Triage Summary capability. The default host keeps the production (unavailable) one.</summary>
     public FakeTriageSummarizer Summarizer { get; } = new();
 
+    /// <summary>SYNTHETIC host only: the Document Verification capability (always succeeds).</summary>
+    public FakeDocumentVerifier Verifier { get; } = new();
+
     protected override void ConfigureSyntheticServices(IServiceCollection services)
     {
         Summarizer.ConnectionString = ConnectionString;
         services.AddSingleton<ITriageSummarizer>(Summarizer);
+        services.AddSingleton<IDocumentVerifier>(Verifier);
     }
 
     /// <summary>Delivers every pending outbox event (including events raised by consumers) through <paramref name="host"/>.</summary>

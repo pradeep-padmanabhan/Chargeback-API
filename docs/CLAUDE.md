@@ -43,11 +43,13 @@ Do these before starting new phases. Each needs tests, and OpenAPI and `docs/con
    - Approve confirms the derived reason code.
    - One-time asynchronous AI summary (`ReviewSummaryConsumer`).
 2. **Triage & Rules:** the deterministic engine, versioned scheme-rule matching, six outcomes and deadlines are already built (Phase 6). Next comes production readiness, which depends on ADR-0119–0122 (bank configuration, rule format, fact gaps, date basis). Real cases need those decisions to flow end to end.
-3. **Evidence & Documents:**
-   - document slots (checklist snapshot when a case is created);
-   - S3 presigned upload, never streamed through the API server;
-   - independent processing status;
-   - immutable upload-stage audit (ADR-0104).
+3. ~~**Evidence & Documents**~~ **Done.**
+   - Declare, then one-time pre-signed PUT, then confirm, then asynchronous classification (`DocumentClassificationConsumer`).
+   - Independent upload and processing statuses.
+   - Immutable upload stage, soft delete, append-only `document_classifications` (migration 0007).
+   - S3 is the `KNOWN_LIMITATION_S3_` stub (`KnownLimitationS3Service`); replace it once guide §8 #29 is decided.
+   - OCR (Textract) is open (§8 #32).
+   - Checklist seeding per scheme is open (§8 #28).
 
 ## Idempotency key store (ADR-0106): implemented
 - Migration 0004 adds the `idempotency_keys` table. `IdempotencyBehavior` sits between Authorization and Transaction.

@@ -58,6 +58,10 @@ Every `data` object also repeats the envelope's base fields (`eventId`, `eventTy
 | `case.status.changed` | `action`, `fromStatus`, `toStatus`, `reason` (null when no rationale was given), `changedBy` |
 | `case.assigned` | `fromUserId`, `toUserId`, `assignedBy` |
 | `case.retriage.requested` | `requestedBy`, `reason`, `caseStatus` |
+| `document.upload.requested` | `documentId`, `documentSlotId`, `mimeType`, `fileSizeBytes`, `schemeStage`, `requestedBy` |
+| `document.uploaded` | `documentId`, `documentSlotId`, `schemeStage`, `confirmedBy` (consumed by `document-classification`) |
+| `document.processed` | `documentId`, `classificationId`, `processingStatus` (Success/Failed), `failureReason` |
+| `document.deleted` | `documentId`, `deletedBy` |
 | `case.review.decided` | `decisionId`, `decision` (APPROVED/REJECTED), `reasonCodeId` (null on reject), `rationale`, `reviewedBy` |
 
 The `triage.completed` sub-objects:

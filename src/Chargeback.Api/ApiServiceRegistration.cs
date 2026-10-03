@@ -7,7 +7,7 @@ using Chargeback.Api.Common.OpenApi;
 using Chargeback.Api.Common.Results;
 using Chargeback.Api.Common.Security;
 using Chargeback.Api.Features.Cases;
-using Chargeback.Api.Features.Documents.Checklist;
+using Chargeback.Api.Features.Documents;
 using Chargeback.Api.Features.Intake;
 using Chargeback.Api.Features.Triage;
 using Chargeback.Api.Workers;

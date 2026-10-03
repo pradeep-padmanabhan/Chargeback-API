@@ -8,6 +8,7 @@ using Chargeback.Infrastructure.Persistence;
 using Chargeback.Infrastructure.Persistence.Interceptors;
 using Chargeback.Infrastructure.Persistence.Queries;
 using Chargeback.Infrastructure.Security;
+using Chargeback.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -71,6 +72,9 @@ public static class DependencyInjection
         services.TryAddSingleton<IDocumentVerifier>(sp => sp.GetRequiredService<UnavailableAiCapabilities>());
         services.TryAddSingleton<ITriageSummarizer>(sp => sp.GetRequiredService<UnavailableAiCapabilities>());
         services.TryAddSingleton<IEvidenceAnalyzer>(sp => sp.GetRequiredService<UnavailableAiCapabilities>());
+
+        // Evidence storage: KNOWN_LIMITATION_S3_ stub until bucket names and IAM policy are confirmed.
+        services.TryAddSingleton<IS3Service, KnownLimitationS3Service>();
 
         // ADR-0106 nightly purge (idempotency keys + processed events, 90 days).
         services.AddOptions<IdempotencyOptions>().Bind(configuration.GetSection(IdempotencyOptions.SectionName));

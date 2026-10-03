@@ -4,9 +4,9 @@ using Npgsql;
 
 namespace Chargeback.IntegrationTests.Persistence;
 
-/// <summary>Migration 0005 (common guide v1.5 §3.1): the approved roles and role → permission matrix, idempotently.</summary>
+/// <summary>The approved role → permission matrix: migration 0005 (base matrix), 0006 (REVIEW_CASE), 0007 (document permissions).</summary>
 [Collection(PostgresCollection.Name)]
-public sealed class Migration0005Tests(PostgresFixture fixture)
+public sealed class RoleMatrixMigrationTests(PostgresFixture fixture)
 {
     private const string Migration = "0005_role_permission_matrix.sql";
 
@@ -47,9 +47,9 @@ public sealed class Migration0005Tests(PostgresFixture fixture)
         await BaselineDatabase.ExecuteScriptAsync(target, BaselineDatabase.MigrationPath(Migration));
         await BaselineDatabase.ExecuteScriptAsync(target, BaselineDatabase.MigrationPath(Migration));
 
-        // A complete install also has migration 0006: REVIEW_CASE for all four roles.
+        // A complete install also has 0006 and 0007: REVIEW_CASE, UPLOAD_DOCUMENT and VIEW_DOCUMENTS for all four roles.
         await using var connection = new NpgsqlConnection(target);
-        await AssertApprovedMatrixAsync(connection, withReviewCase: true);
+        await AssertApprovedMatrixAsync(connection, CompleteInstallGrants);
     }
 
     [Fact]
@@ -62,12 +62,33 @@ public sealed class Migration0005Tests(PostgresFixture fixture)
         await BaselineDatabase.ExecuteScriptAsync(target, BaselineDatabase.MigrationPath("0006_human_review.sql"));
 
         await using var connection = new NpgsqlConnection(target);
-        await AssertApprovedMatrixAsync(connection, withReviewCase: true);
+        await AssertApprovedMatrixAsync(connection, CompleteInstallGrants);
         (await connection.ExecuteScalarAsync<long>(
             "SELECT count(*) FROM pg_trigger WHERE tgname = 'case_review_decisions_append_only' AND NOT tgisinternal")).Should().Be(1);
     }
 
-    private static async Task AssertApprovedMatrixAsync(NpgsqlConnection connection, bool withReviewCase = false)
+    [Fact]
+    public async Task Migration_0007_grants_document_permissions_to_all_four_roles_and_is_idempotent()
+    {
+        var target = await NewDatabaseAsync();
+        await BaselineDatabase.ApplyAllAsync(target);
+
+        await BaselineDatabase.ExecuteScriptAsync(target, BaselineDatabase.MigrationPath("0007_evidence_documents.sql"));
+        await BaselineDatabase.ExecuteScriptAsync(target, BaselineDatabase.MigrationPath("0007_evidence_documents.sql"));
+
+        await using var connection = new NpgsqlConnection(target);
+        await AssertApprovedMatrixAsync(connection, CompleteInstallGrants);
+        (await connection.ExecuteScalarAsync<long>(
+            """
+            SELECT count(*) FROM pg_trigger
+            WHERE tgname IN ('documents_upload_stage_immutable', 'document_classifications_append_only') AND NOT tgisinternal
+            """)).Should().Be(2);
+    }
+
+    /// <summary>Granted to all four roles by migrations 0006 and 0007.</summary>
+    private static readonly string[] CompleteInstallGrants = ["REVIEW_CASE", "UPLOAD_DOCUMENT", "VIEW_DOCUMENTS"];
+
+    private static async Task AssertApprovedMatrixAsync(NpgsqlConnection connection, string[]? grantedToAllRoles = null)
     {
         (await connection.QueryAsync<(string Name, string RoleType)>("SELECT name, role_type FROM chargeback_diagram.roles ORDER BY name"))
             .Should().BeEquivalentTo(Matrix.Select(m => (m.Role, m.Type)), "exactly the four approved roles");
@@ -79,12 +100,9 @@ public sealed class Migration0005Tests(PostgresFixture fixture)
             JOIN chargeback_diagram.permissions p ON p.id = rp.permission_id
             """)).ToList();
         var expected = Matrix.SelectMany(m => m.Permissions.Select(p => (m.Role, p))).ToList();
-        if (withReviewCase)
-        {
-            expected.AddRange(Matrix.Select(m => (m.Role, "REVIEW_CASE")));
-        }
+        expected.AddRange(Matrix.SelectMany(m => (grantedToAllRoles ?? []).Select(p => (m.Role, p))));
 
-        pairs.Should().HaveCount(withReviewCase ? 24 : 20).And.OnlyHaveUniqueItems();
+        pairs.Should().HaveCount(expected.Count).And.OnlyHaveUniqueItems();
         pairs.Should().BeEquivalentTo(expected);
 
         (await connection.ExecuteScalarAsync<long>(

@@ -32,7 +32,7 @@ public sealed class SchemaConformanceTests(PostgresFixture fixture)
             e => e.GetProperties().Select(p => p.GetColumnName()).Where(c => c != "xmin").Order().ToArray());
 
         mapped.Keys.Should().BeEquivalentTo(columns.Keys, "every baseline table is mapped and nothing else");
-        mapped.Should().HaveCount(24, "21 baseline tables + processed_domain_events (0003) + idempotency_keys (0004) + case_review_decisions (0006)");
+        mapped.Should().HaveCount(25, "21 baseline tables + processed_domain_events (0003) + idempotency_keys (0004) + case_review_decisions (0006) + document_classifications (0007)");
         foreach (var (table, databaseColumns) in columns)
         {
             mapped[table].Should().Equal(databaseColumns, $"columns of {table} must match the baseline");

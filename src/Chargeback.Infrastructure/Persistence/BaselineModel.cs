@@ -99,6 +99,7 @@ internal static class BaselineModel
             e.HasOne<Case>().WithMany().HasForeignKey(x => x.CaseId);
             e.HasOne<DocumentSlot>().WithMany().HasForeignKey(x => x.DocumentSlotId);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UploadedBy);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.DeletedBy); // migration 0007
         });
         model.Entity<PortalMessage>(e =>
         {
@@ -169,6 +170,17 @@ internal static class BaselineModel
             e.HasOne<Case>().WithMany().HasForeignKey(x => x.CaseId);
             e.HasOne<SchemeReasonCode>().WithMany().HasForeignKey(x => x.ReasonCodeId);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.ReviewedBy);
+        });
+
+        // Migration 0007: append-only; a database trigger refuses UPDATE and DELETE.
+        model.Entity<DocumentClassification>(e =>
+        {
+            e.ToTable("document_classifications");
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.Confidence).HasPrecision(5, 4);
+            e.Property(x => x.ExtractedFields).HasColumnType("jsonb");
+            e.Property(x => x.Concerns).HasColumnType("jsonb");
+            e.HasOne<Document>().WithMany().HasForeignKey(x => x.DocumentId);
         });
 
         ApplyConventions(model);

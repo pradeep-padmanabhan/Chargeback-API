@@ -208,5 +208,46 @@ public sealed class Document : AuditableEntity
 
     public DateTimeOffset? ProcessedAt { get; set; }
 
+    /// <summary>Processing failure reason, e.g. AI_UNAVAILABLE.</summary>
     public string? ProcessingError { get; set; }
+
+    /// <summary>PENDING_UPLOAD | UPLOADED (migration 0007); independent of <see cref="DocumentStatus"/> (processing).</summary>
+    public string UploadStatus { get; set; } = "PENDING_UPLOAD";
+
+    public DateTimeOffset? UploadConfirmedAt { get; set; }
+
+    /// <summary>Soft delete (migration 0007); rows are never removed.</summary>
+    public DateTimeOffset? DeletedAt { get; set; }
+
+    public Guid? DeletedBy { get; set; }
+}
+
+/// <summary>
+/// <c>document_classifications</c> (migration 0007): one append-only row per classification run. Advisory only; a
+/// successful upload is not a successful verification.
+/// </summary>
+public sealed class DocumentClassification
+{
+    public Guid Id { get; init; } = Guid.CreateVersion7();
+
+    public Guid DocumentId { get; set; }
+
+    /// <summary>SUCCESS | FAILED</summary>
+    public required string Status { get; set; }
+
+    public string? Category { get; set; }
+
+    public decimal? Confidence { get; set; }
+
+    /// <summary>jsonb</summary>
+    public string ExtractedFields { get; set; } = "{}";
+
+    /// <summary>jsonb</summary>
+    public string Concerns { get; set; } = "[]";
+
+    public string? FailureReason { get; set; }
+
+    public string? ModelName { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
 }

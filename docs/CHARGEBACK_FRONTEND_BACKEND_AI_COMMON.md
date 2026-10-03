@@ -113,6 +113,8 @@ The following permission codes and role assignments are approved. BANK users hol
 | `VIEW_TRIAGE` | ✓ | ✓ | ✓ | ✓ |
 | `RETRIAGE_CASE` | — | ✓ | — | ✓ |
 | `REVIEW_CASE` | ✓ | ✓ | ✓ | ✓ |
+| `UPLOAD_DOCUMENT` | ✓ | ✓ | ✓ | ✓ |
+| `VIEW_DOCUMENTS` | ✓ | ✓ | ✓ | ✓ |
 | `VIEW_BANK_USERS` | ✓ | ✓ | ✓ | ✓ |
 
 **Implementation notes:**
@@ -304,6 +306,7 @@ The companion `CHARGEBACK_DIAGRAM_BASELINE.sql` creates a **fresh, standalone di
 | `0004_idempotency_keys.sql` | `idempotency_keys` table (see §3.3); index on `expires_at`; index on `processed_domain_events.processed_at` for the 90-day purge |
 | `0005_role_permission_matrix.sql` (v1.5) | `VIEW_TRIAGE`, `RETRIAGE_CASE`; the four approved roles; the §3.1 matrix (20 rows); no bank scope |
 | `0006_human_review.sql` | `REVIEW_CASE` for all four roles; append-only `case_review_decisions` (ADR-0101) |
+| `0007_evidence_documents.sql` | `UPLOAD_DOCUMENT`, `VIEW_DOCUMENTS` for all four roles; `documents.upload_status` / `upload_confirmed_at` / `deleted_at` / `deleted_by`; immutable upload-stage trigger (ADR-0104); append-only `document_classifications` |
 
 **Complete install** = 0001 followed by every `db/migrations/NNNN_*.sql` in order. All scripts are idempotent and transactional; the application never runs DDL (ADR-0004). Integration tests build every ephemeral database the same way. Migration tooling (Flyway, DbUp or other) is still open (§8 #25).
 
@@ -355,6 +358,15 @@ flowchart TD
 3. Store `triage_results` with inputs/rule version and one of **ProceedToFiling, AutoRefund, RouteToHuman, SendToCompliance, Invalid, Defer**. These are workflow recommendations/outcomes; any consequential actions follow policy and required human controls.
 
 ### Act 4 — Evidence collection
+
+> **Implemented (2026-10-03):**
+> - Declare → one-time pre-signed PUT (15 minutes) → confirm → asynchronous classification through the typed Document Verification capability.
+> - Upload status and processing status are independent.
+> - Upload-stage fields are immutable, deletes are soft, and classification runs are append-only.
+> - S3 is a `KNOWN_LIMITATION_S3_` stub until buckets and IAM are confirmed.
+> - OCR (Textract) is not built.
+>
+> Contract: `docs/contracts/api-conventions.md` (Evidence & Documents).
 
 - Snapshot the required document checklist onto the case when created; do not silently rewrite an existing case checklist after a scheme-rule change.
 - Client uploads to document slots. Store the **document's scheme stage** separately from **processing status**: Initial / PreArbitration / Arbitration versus Pending / Processing / Success / Failed.
@@ -421,7 +433,7 @@ flowchart TD
 | 2 | Ten gate names/order approved from ER diagram. Gate-specific thresholds, applicability and failure policies need business approval before implementing | **Partially resolved** — registry order approved; thresholds open |
 | 3 | Exact Mastercom API endpoint mappings, scheme values, polling and sandbox credentials | **Open** |
 | 4 | Full permission code catalogue for **non-case** endpoints (intake, documents, filing, admin, SDK) | **Open** — case/triage/bank-user permissions approved in §3.1 |
-| 5 | Confirm whether document `scheme_stage` is assigned at upload or inferred from server case state; keep immutable upload-stage audit | **Open** |
+| 5 | Document `scheme_stage`: assigned at upload or inferred | **Resolved** — the client declares it at upload; recorded immutably (ADR-0104) |
 | 6 | FAQ vector/keyword KB store and approved source/version/tenant filtering; must not be used for authoritative reason-code derivation | **Open** |
 | 7 | Confirm production RLS/grants, DR data residency, failover AI behavior and environment-specific security configuration | **Open** |
 | 8 | ADR-0119 — Bank configuration and thresholds table design | **Open — awaiting business approval** |
@@ -444,6 +456,11 @@ flowchart TD
 | 25 | Migration tooling and applied-migration tracking | **Open** |
 | 26 | Bulk dry-run storage and retention for `dryRunId` (ties to ADR-0112 and #18) | **Open** |
 | 27 | Whether auditors require gap-free case references (ADR-0125) | **Open** — gaps accepted per §3.4 unless auditors object |
+| 28 | Which document types / slots are required per scheme and reason code (checklist seeding configuration) | **Open** — needs SME; no checklist is created at case creation |
+| 29 | S3 bucket names, KMS and IAM policy for evidence | **Open** — `KNOWN_LIMITATION_S3_` stub in use |
+| 30 | Maximum upload size | **Open** — configurable `Documents:MaxFileSizeBytes`, default 25 MB pending product sign-off |
+| 31 | May bank users upload through the Client Portal, or only analysts? | **Open** — processor/admin only today |
+| 32 | OCR (Textract) adapter and extracted-field schema for `document_classifications.extracted_fields` | **Open** — classification currently receives no extracted text |
 
 **Resolved in v1.5:**
 - Role matrix seeded by migration 0005; `VIEW_TRIAGE` and `RETRIAGE_CASE` defined → §3.1, §5

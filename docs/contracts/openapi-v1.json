@@ -1,28 +1,6 @@
 {
   "components": {
     "schemas": {
-      "AdvisoryClassificationDto": {
-        "nullable": true,
-        "properties": {
-          "advisory": {
-            "type": "boolean"
-          },
-          "confidence": {
-            "format": "double",
-            "nullable": true,
-            "type": "number"
-          },
-          "label": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "label",
-          "confidence",
-          "advisory"
-        ],
-        "type": "object"
-      },
       "AdvisoryTextDto": {
         "nullable": true,
         "properties": {
@@ -348,6 +326,27 @@
         ],
         "type": "object"
       },
+      "CaseDocumentsDto": {
+        "properties": {
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentDto"
+            },
+            "type": "array"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentSlotDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "slots",
+          "documents"
+        ],
+        "type": "object"
+      },
       "CaseSummaryDto": {
         "properties": {
           "assignedTo": {
@@ -501,13 +500,16 @@
             "type": "string"
           },
           "fileName": {
+            "nullable": true,
             "type": "string"
           },
           "fileSizeBytes": {
             "format": "int64",
+            "nullable": true,
             "type": "integer"
           },
           "mimeType": {
+            "nullable": true,
             "type": "string"
           },
           "schemeStage": {
@@ -732,22 +734,82 @@
         ],
         "type": "object"
       },
+      "DocumentClassificationDto": {
+        "nullable": true,
+        "properties": {
+          "advisory": {
+            "type": "boolean"
+          },
+          "category": {
+            "nullable": true,
+            "type": "string"
+          },
+          "concerns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "confidence": {
+            "format": "double",
+            "nullable": true,
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "extractedFields": {
+            "$ref": "#/components/schemas/JsonElement"
+          },
+          "failureReason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "modelName": {
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "category",
+          "confidence",
+          "concerns",
+          "extractedFields",
+          "failureReason",
+          "modelName",
+          "createdAt",
+          "advisory"
+        ],
+        "type": "object"
+      },
       "DocumentDto": {
         "properties": {
-          "aiClassification": {
-            "$ref": "#/components/schemas/AdvisoryClassificationDto"
-          },
           "caseId": {
             "format": "uuid",
+            "type": "string"
+          },
+          "classification": {
+            "$ref": "#/components/schemas/DocumentClassificationDto"
+          },
+          "deletedAt": {
+            "format": "date-time",
+            "nullable": true,
             "type": "string"
           },
           "documentSlotId": {
             "format": "uuid",
             "nullable": true,
             "type": "string"
-          },
-          "documentStatus": {
-            "$ref": "#/components/schemas/DocumentStatus"
           },
           "fileName": {
             "type": "string"
@@ -770,15 +832,22 @@
             "nullable": true,
             "type": "string"
           },
-          "processingError": {
+          "processingFailureReason": {
             "nullable": true,
             "type": "string"
+          },
+          "processingStatus": {
+            "$ref": "#/components/schemas/DocumentStatus"
           },
           "schemeStage": {
             "$ref": "#/components/schemas/DocumentStage"
           },
-          "uploadSource": {
+          "uploadConfirmedAt": {
+            "format": "date-time",
             "nullable": true,
+            "type": "string"
+          },
+          "uploadStatus": {
             "type": "string"
           },
           "uploadedAt": {
@@ -799,13 +868,15 @@
           "mimeType",
           "fileSizeBytes",
           "schemeStage",
-          "documentStatus",
-          "uploadSource",
+          "uploadStatus",
+          "processingStatus",
+          "processingFailureReason",
           "uploadedBy",
           "uploadedAt",
+          "uploadConfirmedAt",
           "processedAt",
-          "processingError",
-          "aiClassification"
+          "deletedAt",
+          "classification"
         ],
         "type": "object"
       },
@@ -820,6 +891,9 @@
           "expectedType": {
             "nullable": true,
             "type": "string"
+          },
+          "fulfillment": {
+            "$ref": "#/components/schemas/SlotFulfillment"
           },
           "id": {
             "format": "uuid",
@@ -837,6 +911,7 @@
           "slotName",
           "isRequired",
           "expectedType",
+          "fulfillment",
           "documents"
         ],
         "type": "object"
@@ -858,9 +933,6 @@
       },
       "DocumentSummaryDto": {
         "properties": {
-          "documentStatus": {
-            "$ref": "#/components/schemas/DocumentStatus"
-          },
           "fileName": {
             "type": "string"
           },
@@ -882,8 +954,18 @@
             "nullable": true,
             "type": "string"
           },
+          "processingFailureReason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "processingStatus": {
+            "$ref": "#/components/schemas/DocumentStatus"
+          },
           "schemeStage": {
             "$ref": "#/components/schemas/DocumentStage"
+          },
+          "uploadStatus": {
+            "type": "string"
           },
           "uploadedAt": {
             "format": "date-time",
@@ -896,7 +978,9 @@
           "mimeType",
           "fileSizeBytes",
           "schemeStage",
-          "documentStatus",
+          "uploadStatus",
+          "processingStatus",
+          "processingFailureReason",
           "uploadedAt",
           "processedAt"
         ],
@@ -904,6 +988,9 @@
       },
       "DocumentUploadTicketDto": {
         "properties": {
+          "document": {
+            "$ref": "#/components/schemas/DocumentDto"
+          },
           "documentId": {
             "format": "uuid",
             "type": "string"
@@ -927,7 +1014,8 @@
           "documentId",
           "uploadUrl",
           "expiresAt",
-          "requiredHeaders"
+          "requiredHeaders",
+          "document"
         ],
         "type": "object"
       },
@@ -2139,6 +2227,13 @@
           "draftFields"
         ],
         "type": "object"
+      },
+      "SlotFulfillment": {
+        "enum": [
+          "Missing",
+          "AwaitingUpload",
+          "Uploaded"
+        ]
       },
       "SubmitDisputeRequest": {
         "properties": {
@@ -4114,10 +4209,9 @@
         ]
       }
     },
-    "/api/v1/cases/{caseId}/document-slots": {
+    "/api/v1/cases/{caseId}/documents": {
       "get": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 8 (Evidence \u0026 Documents).",
-        "operationId": "getDocumentSlots",
+        "operationId": "listCaseDocuments",
         "parameters": [
           {
             "in": "path",
@@ -4143,10 +4237,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/DocumentSlotDto"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/CaseDocumentsDto"
                 }
               }
             },
@@ -4191,27 +4282,15 @@
               }
             },
             "description": "Not Found"
-          },
-          "501": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
-        "summary": "Case document checklist with uploaded documents",
+        "summary": "Checklist slots with fulfillment, and live documents with upload and processing status (VIEW_DOCUMENTS)",
         "tags": [
-          "Stub"
+          "Document"
         ]
-      }
-    },
-    "/api/v1/cases/{caseId}/documents": {
+      },
       "post": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 8 (Evidence \u0026 Documents).",
+        "description": "Body {documentSlotId?, fileName, mimeType, fileSizeBytes, schemeStage}. MIME types: PDF, JPEG, PNG, TIFF; size up to the configured maximum (default 25 MB). The document starts PENDING_UPLOAD; upload the bytes to uploadUrl with requiredHeaders before expiresAt (15 minutes), then POST \u2026/uploaded. 422 DOCUMENT_SLOT_NOT_IN_CASE.",
         "operationId": "createDocumentUpload",
         "parameters": [
           {
@@ -4294,7 +4373,7 @@
             },
             "description": "Not Found"
           },
-          "501": {
+          "422": {
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -4302,12 +4381,302 @@
                 }
               }
             },
-            "description": "Not Implemented"
+            "description": "Unprocessable Entity"
           }
         },
-        "summary": "Register a document and get a pre-signed upload URL",
+        "summary": "Declare an upload; returns a one-time pre-signed PUT URL (UPLOAD_DOCUMENT)",
         "tags": [
-          "Stub"
+          "Document"
+        ]
+      }
+    },
+    "/api/v1/cases/{caseId}/documents/{documentId}": {
+      "delete": {
+        "description": "Allowed while PENDING_UPLOAD, or UPLOADED with processing Pending; otherwise 409 DOCUMENT_NOT_DELETABLE. The row is kept with deletedAt.",
+        "operationId": "deleteCaseDocument",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional caller correlation id (1-64 chars [A-Za-z0-9._-]); echoed in the response.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDto"
+                }
+              }
+            },
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Soft-delete a document before processing starts (UPLOAD_DOCUMENT)",
+        "tags": [
+          "Document"
+        ]
+      },
+      "get": {
+        "operationId": "getCaseDocument",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional caller correlation id (1-64 chars [A-Za-z0-9._-]); echoed in the response.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "One document with its latest advisory classification (VIEW_DOCUMENTS)",
+        "tags": [
+          "Document"
+        ]
+      }
+    },
+    "/api/v1/cases/{caseId}/documents/{documentId}/uploaded": {
+      "post": {
+        "description": "PENDING_UPLOAD \u2192 UPLOADED. Idempotent. 422 UPLOAD_NOT_FOUND when the object is not in S3 yet.",
+        "operationId": "confirmDocumentUpload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional caller correlation id (1-64 chars [A-Za-z0-9._-]); echoed in the response.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDto"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Confirm the S3 upload; starts asynchronous OCR/classification (UPLOAD_DOCUMENT)",
+        "tags": [
+          "Document"
         ]
       }
     },
@@ -5465,282 +5834,6 @@
         "summary": "Gate trail: one result per executed gate, in order",
         "tags": [
           "Intake"
-        ]
-      }
-    },
-    "/api/v1/documents/{documentId}": {
-      "get": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 8 (Evidence \u0026 Documents).",
-        "operationId": "getDocument",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "documentId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Optional caller correlation id (1-64 chars [A-Za-z0-9._-]); echoed in the response.",
-            "in": "header",
-            "name": "X-Correlation-Id",
-            "schema": {
-              "maxLength": 64,
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocumentDto"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "400": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "401": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Unauthorized"
-          },
-          "403": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Forbidden"
-          },
-          "404": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "501": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Implemented"
-          }
-        },
-        "summary": "Document metadata, stage, processing status and advisory classification",
-        "tags": [
-          "Stub"
-        ]
-      }
-    },
-    "/api/v1/documents/{documentId}/reprocessing": {
-      "post": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 8 (Evidence \u0026 Documents).",
-        "operationId": "reprocessDocument",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "documentId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Optional caller correlation id (1-64 chars [A-Za-z0-9._-]); echoed in the response.",
-            "in": "header",
-            "name": "X-Correlation-Id",
-            "schema": {
-              "maxLength": 64,
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocumentDto"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "400": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "401": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Unauthorized"
-          },
-          "403": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Forbidden"
-          },
-          "404": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "501": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Implemented"
-          }
-        },
-        "summary": "Retry failed OCR/classification",
-        "tags": [
-          "Stub"
-        ]
-      }
-    },
-    "/api/v1/documents/{documentId}/upload-completion": {
-      "post": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 8 (Evidence \u0026 Documents).",
-        "operationId": "completeDocumentUpload",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "documentId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Optional caller correlation id (1-64 chars [A-Za-z0-9._-]); echoed in the response.",
-            "in": "header",
-            "name": "X-Correlation-Id",
-            "schema": {
-              "maxLength": 64,
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocumentDto"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "400": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "401": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Unauthorized"
-          },
-          "403": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Forbidden"
-          },
-          "404": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "501": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Implemented"
-          }
-        },
-        "summary": "Confirm the S3 upload; starts asynchronous OCR/classification",
-        "tags": [
-          "Stub"
         ]
       }
     },
@@ -7227,6 +7320,9 @@
     },
     {
       "name": "Identity"
+    },
+    {
+      "name": "Document"
     },
     {
       "name": "Case"

@@ -60,5 +60,7 @@ public sealed class ChargebackDbContext(DbContextOptions<ChargebackDbContext> op
 
     public DbSet<CaseReviewDecision> CaseReviewDecisions => Set<CaseReviewDecision>();
 
+    public DbSet<DocumentClassification> DocumentClassifications => Set<DocumentClassification>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder) => BaselineModel.Configure(modelBuilder);
 }

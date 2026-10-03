@@ -72,6 +72,7 @@ Implemented now:
 - `GET /disputes/{disputeId}`
 - `GET /disputes/{disputeId}/gate-results`: processor and admin users only.
 - `GET /cases`, `GET /cases/{caseId}`, `GET /cases/{caseId}/timeline`, `POST /cases/{caseId}/transitions`, `PATCH /cases/{caseId}/assignment`, `POST /cases/{caseId}/retriage`: see Case Management (Phase 7) below.
+- `POST|GET /cases/{caseId}/documents`, `POST /cases/{caseId}/documents/{documentId}/uploaded`, `GET|DELETE /cases/{caseId}/documents/{documentId}`: see Evidence & Documents (Phase 8) below.
 - `GET /cases/{caseId}/triage`: triage evaluations, newest first. Requires `VIEW_TRIAGE`; processor and admin users only.
 - `GET /me`
 - `GET /admin/banks`
@@ -191,3 +192,36 @@ All of these endpoints are for processor and admin users only. Bank users get th
 - No endpoint generates or regenerates it. If AI is disabled or unavailable at that moment, `aiSummary` stays `null`; there is no automatic retry.
 - It is always `advisory: true`, with the model and prompt template that produced it.
 - Writing the summary changes the case `version`, so reload the case before deciding.
+
+## Evidence & Documents (Phase 8)
+
+| Endpoint | Permission | Notes |
+|---|---|---|
+| `POST /cases/{id}/documents` body `{documentSlotId?, fileName, mimeType, fileSizeBytes, schemeStage}` | `UPLOAD_DOCUMENT` | **201** `{documentId, uploadUrl, expiresAt, requiredHeaders, document}`. Validation rules below |
+| `PUT <uploadUrl>` (direct to S3) | — | The client sends the bytes with `requiredHeaders`. The API never receives file content |
+| `POST /cases/{id}/documents/{documentId}/uploaded` | `UPLOAD_DOCUMENT` | PENDING_UPLOAD → UPLOADED; queues classification. Idempotent. **422** `UPLOAD_NOT_FOUND` if the object is not in S3 |
+| `GET /cases/{id}/documents` | `VIEW_DOCUMENTS` | `{slots, documents}`: checklist slots with `fulfillment` (Missing / AwaitingUpload / Uploaded) and live documents, newest first |
+| `GET /cases/{id}/documents/{documentId}` | `VIEW_DOCUMENTS` | The document with its latest classification. Soft-deleted documents are still returned, with `deletedAt` |
+| `DELETE /cases/{id}/documents/{documentId}` | `UPLOAD_DOCUMENT` | **204** soft delete (the row is kept). Only before processing starts, otherwise **409** `DOCUMENT_NOT_DELETABLE` |
+
+**Declaring an upload:**
+- MIME type must be PDF, JPEG, PNG or TIFF (case-insensitive).
+- Size: 1 byte to `Documents:MaxFileSizeBytes`. The default is 25 MB, pending product sign-off.
+- `fileName` must be a plain name: no path separators, control characters or card numbers.
+- `schemeStage` is required and immutable.
+- A `documentSlotId` from another case returns **422** `DOCUMENT_SLOT_NOT_IN_CASE`.
+- Each declaration issues a new pre-signed URL, valid for 15 minutes. URLs are never reused.
+
+**Statuses:** two independent fields.
+- `uploadStatus`: `PENDING_UPLOAD` → `UPLOADED`.
+- `processingStatus`: `Pending` → `Processing` → `Success` | `Failed`, with `processingFailureReason` such as `AI_UNAVAILABLE`.
+
+A document can be `UPLOADED` while processing is still `Pending`. Poll the document to follow processing.
+
+**Classification:**
+- It is advisory (`advisory: true`).
+- Every run is kept in `document_classifications`, and `classification` shows the latest one.
+- When the capability is unavailable, processing becomes `Failed` with `AI_UNAVAILABLE`; there is no automatic retry.
+- Fulfillment counts confirmed uploads only; a successful upload is not a verification.
+
+**Who may upload:** processor and admin users only, until bank-user upload through the Client Portal is decided.
