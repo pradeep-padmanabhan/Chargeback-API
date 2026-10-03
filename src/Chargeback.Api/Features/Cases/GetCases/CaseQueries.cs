@@ -129,12 +129,6 @@ internal sealed class ListCasesHandler(IDapperQueryService db, ICurrentUser curr
     }
 }
 
-/// <summary>Reads one case detail (also used by commands, inside their transaction, to return the updated case).</summary>
-public interface ICaseDetailReader
-{
-    Task<CaseDetailDto?> ReadAsync(Guid caseId, CancellationToken cancellationToken);
-}
-
 internal sealed class CaseDetailReader(IDapperQueryService db, ISchemeCalendar calendar, TimeProvider timeProvider, ICurrentUser currentUser) : ICaseDetailReader
 {
     private const string Sql = """
@@ -215,7 +209,13 @@ internal sealed class GetCaseHandler(ICaseDetailReader reader) : IRequestHandler
         await reader.ReadAsync(request.CaseId, cancellationToken) is { } dto ? dto : Errors.ResourceNotFound;
 }
 
-internal sealed class GetCaseTimelineHandler(IDapperQueryService db) : IRequestHandler<GetCaseTimelineQuery, Result<IReadOnlyList<CaseTimelineEntryDto>>>
+internal sealed class GetCaseTimelineHandler(ICaseTimelineReader timeline) : IRequestHandler<GetCaseTimelineQuery, Result<IReadOnlyList<CaseTimelineEntryDto>>>
+{
+    public async Task<Result<IReadOnlyList<CaseTimelineEntryDto>>> Handle(GetCaseTimelineQuery request, CancellationToken cancellationToken) =>
+        Result.Success(await timeline.ReadAsync(request.CaseId, cancellationToken));
+}
+
+internal sealed class CaseTimelineReader(IDapperQueryService db) : ICaseTimelineReader
 {
     private const string Sql = """
         SELECT id, event_type, (event_data->'data')::text AS data, created_at
@@ -224,11 +224,11 @@ internal sealed class GetCaseTimelineHandler(IDapperQueryService db) : IRequestH
         ORDER BY created_at, id
         """;
 
-    public async Task<Result<IReadOnlyList<CaseTimelineEntryDto>>> Handle(GetCaseTimelineQuery request, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<CaseTimelineEntryDto>> ReadAsync(Guid caseId, CancellationToken cancellationToken)
     {
-        var rows = await db.QueryAsync<Row>(Sql, new { request.CaseId }, cancellationToken);
-        return Result.Success<IReadOnlyList<CaseTimelineEntryDto>>(rows.Select(r => new CaseTimelineEntryDto(
-            r.Id, r.EventType, r.CreatedAt, r.Data is null ? null : JsonDocument.Parse(r.Data).RootElement.Clone())).ToArray());
+        var rows = await db.QueryAsync<Row>(Sql, new { CaseId = caseId }, cancellationToken);
+        return rows.Select(r => new CaseTimelineEntryDto(
+            r.Id, r.EventType, r.CreatedAt, r.Data is null ? null : JsonDocument.Parse(r.Data).RootElement.Clone())).ToArray();
     }
 
     private sealed class Row

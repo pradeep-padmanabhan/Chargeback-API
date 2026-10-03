@@ -2,7 +2,7 @@ using Chargeback.Api.Common.Paging;
 using Chargeback.Api.Features.Admin;
 using Chargeback.Api.Features.Cases.GetCases;
 using Chargeback.Api.Features.ClientPortal;
-using Chargeback.Api.Features.Review;
+using Chargeback.Api.Features.Review.Workspace;
 using Chargeback.SharedKernel.Paging;
 using Chargeback.SharedKernel.Results;
 

@@ -31,7 +31,21 @@ public enum ReviewDecision
     Reject,
 }
 
-/// <summary>Rationale persistence requires ADR-0101 approval.</summary>
-public sealed record ReviewDecisionRequest(ReviewDecision Decision, string Rationale);
+/// <summary>
+/// Human Review decision (common guide §6 Act 5). <c>Rationale</c> (the analyst's notes) is required and audited.
+/// <c>ReasonCodeId</c>: on <c>Approve</c>, the id of the case's deterministic derived reason code, sent back as explicit
+/// confirmation (it must match; neither the analyst nor AI can substitute a code); omit it on <c>Reject</c>.
+/// <c>ExpectedVersion</c>: the case <c>version</c> last read (optimistic concurrency).
+/// </summary>
+public sealed record ReviewDecisionRequest(ReviewDecision? Decision, string? Rationale, Guid? ReasonCodeId, uint? ExpectedVersion);
 
-public sealed record ReviewDecisionResponse(Guid CaseId, ReviewDecision Decision, Guid ReviewedBy, DateTimeOffset ReviewedAt);
+/// <summary>The recorded decision (a <c>case_review_decisions</c> row) and the updated case.</summary>
+public sealed record ReviewDecisionResponse(
+    Guid DecisionId,
+    Guid CaseId,
+    ReviewDecision Decision,
+    Guid? ReasonCodeId,
+    string Rationale,
+    Guid ReviewedBy,
+    DateTimeOffset ReviewedAt,
+    CaseDetailDto Case);

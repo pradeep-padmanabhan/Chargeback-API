@@ -58,6 +58,7 @@ Every `data` object also repeats the envelope's base fields (`eventId`, `eventTy
 | `case.status.changed` | `action`, `fromStatus`, `toStatus`, `reason` (null when no rationale was given), `changedBy` |
 | `case.assigned` | `fromUserId`, `toUserId`, `assignedBy` |
 | `case.retriage.requested` | `requestedBy`, `reason`, `caseStatus` |
+| `case.review.decided` | `decisionId`, `decision` (APPROVED/REJECTED), `reasonCodeId` (null on reject), `rationale`, `reviewedBy` |
 
 The `triage.completed` sub-objects:
 

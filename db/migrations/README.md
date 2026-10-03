@@ -2,11 +2,12 @@
 
 | # | File | Purpose | Status |
 |---|---|---|---|
-| 0001 | [`docs/CHARGEBACK_DIAGRAM_BASELINE.sql`](../../docs/CHARGEBACK_DIAGRAM_BASELINE.sql) | Baseline schema, including the approved permission definitions (`CREATE_DISPUTE`, `ASSIGN_CASE`, `VIEW_TRIAGE`, `RETRIAGE_CASE`). Assigns no permission to any role | Approved |
+| 0001 | [`docs/CHARGEBACK_DIAGRAM_BASELINE.sql`](../../docs/CHARGEBACK_DIAGRAM_BASELINE.sql) | Baseline schema, including the approved permission definitions (`CREATE_DISPUTE`, `ASSIGN_CASE`, `VIEW_TRIAGE`, `RETRIAGE_CASE`, `REVIEW_CASE`). Assigns no permission to any role | Approved |
 | 0002 | [`0002_add_create_dispute_permission.sql`](0002_add_create_dispute_permission.sql) | Adds `CREATE_DISPUTE` (ADR-0111). Not assigned to any role | Approved; not executed |
 | 0003 | [`0003_case_management.sql`](0003_case_management.sql) | Phase 7, in four parts (below) | Approved; not executed |
 | 0004 | [`0004_idempotency_keys.sql`](0004_idempotency_keys.sql) | ADR-0106: the `idempotency_keys` table, plus a `processed_at` index for the 90-day purge | Approved; not executed |
 | 0005 | [`0005_role_permission_matrix.sql`](0005_role_permission_matrix.sql) | Guide v1.4 §3.1: `VIEW_TRIAGE` and `RETRIAGE_CASE` definitions; roles Analyst, Senior Analyst, Compliance Officer and Admin; the approved role → permission matrix (20 rows). No bank scope is granted | Approved; not executed |
+| 0006 | [`0006_human_review.sql`](0006_human_review.sql) | `REVIEW_CASE` for all four roles; append-only `case_review_decisions` table (ADR-0101), with a trigger that refuses UPDATE and DELETE | Approved; not executed |
 
 Migration 0003 adds:
 - the `ASSIGN_CASE` permission, not assigned to any role;

@@ -1218,6 +1218,14 @@
       "NullableOfJsonElement": {
         "nullable": true
       },
+      "NullableOfReviewDecision": {
+        "enum": [
+          "Approve",
+          "Reject",
+          null
+        ],
+        "nullable": true
+      },
       "NullableOfTriageOutcome": {
         "enum": [
           "ProceedToFiling",
@@ -1754,26 +1762,54 @@
       "ReviewDecisionRequest": {
         "properties": {
           "decision": {
-            "$ref": "#/components/schemas/ReviewDecision"
+            "$ref": "#/components/schemas/NullableOfReviewDecision"
+          },
+          "expectedVersion": {
+            "format": "uint32",
+            "nullable": true,
+            "type": "integer"
           },
           "rationale": {
+            "nullable": true,
+            "type": "string"
+          },
+          "reasonCodeId": {
+            "format": "uuid",
+            "nullable": true,
             "type": "string"
           }
         },
         "required": [
           "decision",
-          "rationale"
+          "rationale",
+          "reasonCodeId",
+          "expectedVersion"
         ],
         "type": "object"
       },
       "ReviewDecisionResponse": {
         "properties": {
+          "case": {
+            "$ref": "#/components/schemas/CaseDetailDto"
+          },
           "caseId": {
             "format": "uuid",
             "type": "string"
           },
           "decision": {
             "$ref": "#/components/schemas/ReviewDecision"
+          },
+          "decisionId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "reasonCodeId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
           },
           "reviewedAt": {
             "format": "date-time",
@@ -1785,10 +1821,14 @@
           }
         },
         "required": [
+          "decisionId",
           "caseId",
           "decision",
+          "reasonCodeId",
+          "rationale",
           "reviewedBy",
-          "reviewedAt"
+          "reviewedAt",
+          "case"
         ],
         "type": "object"
       },
@@ -4652,7 +4692,6 @@
     },
     "/api/v1/cases/{caseId}/review": {
       "get": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 9 (Human Review).",
         "operationId": "getReviewWorkspace",
         "parameters": [
           {
@@ -4724,27 +4763,17 @@
               }
             },
             "description": "Not Found"
-          },
-          "501": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
-        "summary": "Analyst decision workspace (stored AI summary is advisory)",
+        "summary": "Analyst decision workspace (stored AI summary is advisory; never generated on read)",
         "tags": [
-          "Stub"
+          "Review"
         ]
       }
     },
     "/api/v1/cases/{caseId}/review/decision": {
       "post": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 9 (Human Review).",
+        "description": "Body {decision, rationale, reasonCodeId, expectedVersion}. Approve: reasonCodeId must be the case\u0027s derived reason code (422 REASON_CODE_NOT_DERIVED / REASON_CODE_MISMATCH); Reject: omit reasonCodeId. Case must be UNDER_REVIEW (422 INVALID_TRANSITION). 409 CASE_VERSION_MISMATCH when expectedVersion is stale. Records an append-only decision and moves the case to APPROVED or REJECTED.",
         "operationId": "submitReviewDecision",
         "parameters": [
           {
@@ -4762,6 +4791,17 @@
             "name": "X-Correlation-Id",
             "schema": {
               "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Client-generated key (8-128 chars [A-Za-z0-9._:-]), scoped to the caller and operation, kept 90 days (ADR-0106). A retry with the same key and request replays the stored response with header Idempotent-Replayed: true; the same key with a different request is 422 IDEMPOTENCY_KEY_REUSED; while the first is still running, 409 IDEMPOTENCY_REQUEST_IN_PROGRESS.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
               "type": "string"
             }
           }
@@ -4785,7 +4825,18 @@
                 }
               }
             },
-            "description": "OK"
+            "description": "OK",
+            "headers": {
+              "Idempotent-Replayed": {
+                "description": "Present with value \u0027true\u0027 when this response was replayed from the idempotency store.",
+                "schema": {
+                  "enum": [
+                    "true"
+                  ],
+                  "type": "string"
+                }
+              }
+            }
           },
           "400": {
             "content": {
@@ -4827,7 +4878,7 @@
             },
             "description": "Not Found"
           },
-          "501": {
+          "409": {
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -4835,12 +4886,22 @@
                 }
               }
             },
-            "description": "Not Implemented"
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
           }
         },
-        "summary": "Approve or reject with rationale (audited)",
+        "summary": "Approve or reject a case under review (REVIEW_CASE; Idempotency-Key required)",
         "tags": [
-          "Stub"
+          "Review"
         ]
       }
     },
@@ -6604,7 +6665,6 @@
     },
     "/api/v1/reviews/queue": {
       "get": {
-        "description": "[STUB] Contract only; returns 501 once authorized. Planned: Phase 9 (Human Review).",
         "operationId": "getReviewQueue",
         "parameters": [
           {
@@ -6718,21 +6778,11 @@
               }
             },
             "description": "Not Found"
-          },
-          "501": {
-            "content": {
-              "application/problem\u002Bjson": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            },
-            "description": "Not Implemented"
           }
         },
-        "summary": "Flagged / policy-selected cases awaiting review",
+        "summary": "Cases in UNDER_REVIEW within the caller\u0027s bank scope (REVIEW_CASE)",
         "tags": [
-          "Stub"
+          "Review"
         ]
       }
     },
@@ -7168,6 +7218,9 @@
     },
     {
       "name": "Triage"
+    },
+    {
+      "name": "Review"
     },
     {
       "name": "Intake"

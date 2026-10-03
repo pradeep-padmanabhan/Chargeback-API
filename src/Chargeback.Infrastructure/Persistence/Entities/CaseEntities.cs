@@ -114,6 +114,28 @@ public sealed class Case : AuditableEntity
     public DateTimeOffset? HumanReviewedAt { get; set; }
 }
 
+/// <summary>
+/// <c>case_review_decisions</c> (migration 0006, ADR-0101): append-only audit of each human review decision. An APPROVED
+/// decision records the deterministic reason code the analyst confirmed; AI never supplies it.
+/// </summary>
+public sealed class CaseReviewDecision
+{
+    public Guid Id { get; init; } = Guid.CreateVersion7();
+
+    public Guid CaseId { get; set; }
+
+    /// <summary>APPROVED | REJECTED</summary>
+    public required string Decision { get; set; }
+
+    public Guid? ReasonCodeId { get; set; }
+
+    public required string Rationale { get; set; }
+
+    public Guid ReviewedBy { get; set; }
+
+    public DateTimeOffset DecidedAt { get; set; }
+}
+
 /// <summary><c>triage_results</c></summary>
 public sealed class TriageResultRecord : BaseEntity, IHasCreatedAt
 {

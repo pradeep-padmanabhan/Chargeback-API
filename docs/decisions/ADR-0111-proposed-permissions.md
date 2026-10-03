@@ -44,3 +44,9 @@ Also needed: the role → permission matrix and the processor-to-bank scope matr
 - **Migration 0005 seeds the approved role matrix** (common guide §3.1): Analyst, Senior Analyst, Compliance Officer and Admin, 20 `role_permissions` rows. It grants no bank scope.
 - **Not in the matrix:** `CREATE_DISPUTE` (guide §8 #21). Its assignment is still open.
 - **Still proposed, not seeded:** `REVIEW_CASE`, `VIEW_FILINGS`, `SEND_PORTAL_MESSAGE`, `MANAGE_BANKS`, `MANAGE_ROLES`, `MANAGE_BANK_SCOPES`, `VIEW_SCHEME_RULES`, `MANAGE_SCHEME_RULES` and `MANAGE_BANK_TRIAGE_CONFIG`.
+
+## Human Review decision (2026-10-03)
+`REVIEW_CASE` is approved:
+- **Where it is defined:** the baseline (fresh installs) and migration 0006 (existing databases).
+- **Who holds it:** all four roles (Analyst, Senior Analyst, Compliance Officer, Admin) via migration 0006.
+- **What it guards:** the review queue, the workspace and the decision.

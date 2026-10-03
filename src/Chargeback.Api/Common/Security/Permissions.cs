@@ -30,10 +30,12 @@ public static class Permissions
     /// <summary>Guide v1.4 §3.1 (approved): defined in the baseline; assigned to roles by migration 0005.</summary>
     public const string RetriageCase = "RETRIAGE_CASE";
 
+    /// <summary>Human Review (approved 2026-10-03): defined in the baseline; assigned to all four roles by migration 0006.</summary>
+    public const string ReviewCase = "REVIEW_CASE";
+
     // ---- PROPOSED, NOT SEEDED (ADR-0111) -------------------------------------------------
     // Operations guarded by these are denied to every user until product/security approve the
     // names and seed them. Do not seed them from application code.
-    public const string ReviewCase = "REVIEW_CASE";
     public const string ViewFilings = "VIEW_FILINGS";
     public const string SendPortalMessage = "SEND_PORTAL_MESSAGE";
     public const string ManageBanks = "MANAGE_BANKS";
@@ -46,12 +48,12 @@ public static class Permissions
     [
         ViewBanks, ViewBankUsers, CreateBankUser, UpdateBankUser, DisableBankUser,
         ViewCases, UpdateCaseStatus, UploadDocument, SubmitMastercom, ViewReports, CreateDispute, AssignCase,
-        ViewTriage, RetriageCase,
+        ViewTriage, RetriageCase, ReviewCase,
     ];
 
     public static readonly IReadOnlyList<string> Proposed =
     [
-        ReviewCase, ViewFilings, SendPortalMessage,
+        ViewFilings, SendPortalMessage,
         ManageBanks, ManageRoles, ManageBankScopes, ViewSchemeRules, ManageSchemeRules,
     ];
 }

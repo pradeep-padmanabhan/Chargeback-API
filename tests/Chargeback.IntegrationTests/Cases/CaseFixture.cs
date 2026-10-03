@@ -1,3 +1,4 @@
+using Chargeback.Infrastructure.Ai.Capabilities;
 using Chargeback.Infrastructure.Outbox;
 using Chargeback.IntegrationTests.Triage;
 using Chargeback.TestSupport;
@@ -17,6 +18,15 @@ public sealed class CaseFixture : TriageFixture
         ["Outbox:Transport"] = OutboxTransports.InProcess,
         ["Outbox:DispatcherEnabled"] = "false",
     };
+
+    /// <summary>SYNTHETIC host only: the Triage Summary capability. The default host keeps the production (unavailable) one.</summary>
+    public FakeTriageSummarizer Summarizer { get; } = new();
+
+    protected override void ConfigureSyntheticServices(IServiceCollection services)
+    {
+        Summarizer.ConnectionString = ConnectionString;
+        services.AddSingleton<ITriageSummarizer>(Summarizer);
+    }
 
     /// <summary>Delivers every pending outbox event (including events raised by consumers) through <paramref name="host"/>.</summary>
     public static async Task DrainOutboxAsync(ChargebackApiFactory host)

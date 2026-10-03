@@ -21,3 +21,6 @@ Common guide §4 requires recording, per invocation:
 ## Proposal
 - Add to `ai_decision_logs`: `bank_id`, `prompt_version`, `status`, `failure_reason`, `overridden_by`, `overridden_at` and `override_value jsonb`.
 - Add `cases.ai_summary_log_id` (FK).
+
+## Interim (2026-10-03): review summary provenance without a schema change
+The Human Review workspace shows the stored `cases.ai_summary` with the model and prompt of the **first successful** `TriageSummary` row in `ai_decision_logs` for the case. This is correct because the summary is written only once, while `ai_summary` is empty. The proposed `cases.ai_summary_log_id` link would make it explicit. The other proposed columns are still open.

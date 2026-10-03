@@ -1,6 +1,8 @@
 using Chargeback.Api.Common.Security;
 using Chargeback.Api.Features.Cases.Contracts;
 using Chargeback.Api.Features.Cases.CreateCase;
+using Chargeback.Api.Features.Review.Decision;
+using Chargeback.Api.Features.Review.Summary;
 using Chargeback.Api.Features.Triage.EvaluateCaseTriage;
 using Chargeback.Infrastructure.Outbox;
 using Chargeback.SharedKernel.Results;
@@ -110,12 +112,61 @@ public sealed partial class AutomaticTriageConsumer(ISender sender, ILogger<Auto
     private static partial void LogNotTriaged(ILogger logger, Guid caseId, string reason);
 }
 
+/// <summary>
+/// Generates the one-time review summary when a case first enters UNDER_REVIEW (common guide §6 Act 5). Fail-soft:
+/// AI unavailability is logged and the case proceeds without a summary; it is never retried automatically.
+/// </summary>
+public sealed partial class ReviewSummaryConsumer(ISender sender, ILogger<ReviewSummaryConsumer> logger) : IIntegrationEventConsumer
+{
+    public const string ConsumerName = "review-summary";
+    public const string SourceEventType = "case.status.changed";
+
+    public string Name => ConsumerName;
+
+    public bool Handles(string eventType) => eventType == SourceEventType;
+
+    public async Task HandleAsync(IntegrationEventEnvelope envelope, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+        if (envelope.Data.GetProperty("toStatus").GetString() != CaseStatuses.UnderReview || envelope.CaseId is not { } caseId)
+        {
+            return;
+        }
+
+        Result<ReviewSummaryOutcome> result;
+        using (SystemExecution.Begin(ConsumerName))
+        {
+            result = await sender.Send(new GenerateReviewSummaryCommand(caseId, envelope.EventId, ConsumerName), cancellationToken);
+        }
+
+        if (result.IsSuccess)
+        {
+            LogOutcome(logger, caseId, result.Value);
+        }
+        else if (result.Error == ReviewErrors.AlreadyProcessed)
+        {
+            LogSkipped(logger, envelope.EventId, ConsumerName);
+        }
+        else
+        {
+            throw new RetryableConsumerException($"Review summary for case {caseId} failed: {result.Error.Code}");
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Review summary for case {CaseId}: {Outcome}")]
+    private static partial void LogOutcome(ILogger logger, Guid caseId, ReviewSummaryOutcome outcome);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Event {EventId} already processed by {Consumer}; skipped")]
+    private static partial void LogSkipped(ILogger logger, Guid eventId, string consumer);
+}
+
 public static class WorkerServiceRegistration
 {
     public static IServiceCollection AddWorkflowConsumers(this IServiceCollection services)
     {
         services.AddScoped<IIntegrationEventConsumer, CaseCreationConsumer>();
         services.AddScoped<IIntegrationEventConsumer, AutomaticTriageConsumer>();
+        services.AddScoped<IIntegrationEventConsumer, ReviewSummaryConsumer>();
         return services;
     }
 }

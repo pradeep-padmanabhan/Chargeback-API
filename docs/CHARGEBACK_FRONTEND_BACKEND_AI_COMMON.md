@@ -112,6 +112,7 @@ The following permission codes and role assignments are approved. BANK users hol
 | `ASSIGN_CASE` | — | ✓ | — | ✓ |
 | `VIEW_TRIAGE` | ✓ | ✓ | ✓ | ✓ |
 | `RETRIAGE_CASE` | — | ✓ | — | ✓ |
+| `REVIEW_CASE` | ✓ | ✓ | ✓ | ✓ |
 | `VIEW_BANK_USERS` | ✓ | ✓ | ✓ | ✓ |
 
 **Implementation notes:**
@@ -302,6 +303,7 @@ The companion `CHARGEBACK_DIAGRAM_BASELINE.sql` creates a **fresh, standalone di
 | `0003_case_management.sql` | `processed_domain_events` (UNIQUE on `event_id`); `ASSIGN_CASE` permission; `cases_status_check` (`NEW, FLAGGED, UNDER_REVIEW, APPROVED, REJECTED, FILED, CLOSED`); `case_reference_seq` (1–999,999, no cycle, no yearly reset; ADR-0125) |
 | `0004_idempotency_keys.sql` | `idempotency_keys` table (see §3.3); index on `expires_at`; index on `processed_domain_events.processed_at` for the 90-day purge |
 | `0005_role_permission_matrix.sql` (v1.5) | `VIEW_TRIAGE`, `RETRIAGE_CASE`; the four approved roles; the §3.1 matrix (20 rows); no bank scope |
+| `0006_human_review.sql` | `REVIEW_CASE` for all four roles; append-only `case_review_decisions` (ADR-0101) |
 
 **Complete install** = 0001 followed by every `db/migrations/NNNN_*.sql` in order. All scripts are idempotent and transactional; the application never runs DDL (ADR-0004). Integration tests build every ephemeral database the same way. Migration tooling (Flyway, DbUp or other) is still open (§8 #25).
 
@@ -360,6 +362,15 @@ flowchart TD
 - Record processing failures for retry and preserve the dispute/case even when Textract or Bedrock is unavailable.
 
 ### Act 5 — Human review when triggered
+
+> **Implemented (2026-10-03):**
+> - Review queue = UNDER_REVIEW cases.
+> - Workspace and decision endpoints with `REVIEW_CASE`.
+> - Approve confirms the deterministic derived reason code.
+> - Every decision is an append-only `case_review_decisions` row.
+> - The one-time summary is generated asynchronously on entering review. It is fail-soft and never regenerated.
+>
+> Contract: `docs/contracts/api-conventions.md` (Human Review).
 
 - Route flagged or policy-selected cases to the analyst workspace with intake facts, ten-gate trail, deterministic reason-code choice, document checklist, triage trail and activity timeline.
 - The **Analysis & Explanation Agent generates a plain-English summary once when the case first enters review**; store its text, model/prompt version and audit record. Do **not** regenerate it on page refresh. A separately authorized explicit refresh/versioning operation would require its own specification.

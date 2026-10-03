@@ -47,11 +47,27 @@ public sealed class Migration0005Tests(PostgresFixture fixture)
         await BaselineDatabase.ExecuteScriptAsync(target, BaselineDatabase.MigrationPath(Migration));
         await BaselineDatabase.ExecuteScriptAsync(target, BaselineDatabase.MigrationPath(Migration));
 
+        // A complete install also has migration 0006: REVIEW_CASE for all four roles.
         await using var connection = new NpgsqlConnection(target);
-        await AssertApprovedMatrixAsync(connection);
+        await AssertApprovedMatrixAsync(connection, withReviewCase: true);
     }
 
-    private static async Task AssertApprovedMatrixAsync(NpgsqlConnection connection)
+    [Fact]
+    public async Task Migration_0006_grants_review_case_to_all_four_roles_and_is_idempotent()
+    {
+        var target = await NewDatabaseAsync();
+        await BaselineDatabase.ApplyAllAsync(target);
+
+        await BaselineDatabase.ExecuteScriptAsync(target, BaselineDatabase.MigrationPath("0006_human_review.sql"));
+        await BaselineDatabase.ExecuteScriptAsync(target, BaselineDatabase.MigrationPath("0006_human_review.sql"));
+
+        await using var connection = new NpgsqlConnection(target);
+        await AssertApprovedMatrixAsync(connection, withReviewCase: true);
+        (await connection.ExecuteScalarAsync<long>(
+            "SELECT count(*) FROM pg_trigger WHERE tgname = 'case_review_decisions_append_only' AND NOT tgisinternal")).Should().Be(1);
+    }
+
+    private static async Task AssertApprovedMatrixAsync(NpgsqlConnection connection, bool withReviewCase = false)
     {
         (await connection.QueryAsync<(string Name, string RoleType)>("SELECT name, role_type FROM chargeback_diagram.roles ORDER BY name"))
             .Should().BeEquivalentTo(Matrix.Select(m => (m.Role, m.Type)), "exactly the four approved roles");
@@ -62,8 +78,14 @@ public sealed class Migration0005Tests(PostgresFixture fixture)
             JOIN chargeback_diagram.roles r ON r.id = rp.role_id
             JOIN chargeback_diagram.permissions p ON p.id = rp.permission_id
             """)).ToList();
-        pairs.Should().HaveCount(20).And.OnlyHaveUniqueItems();
-        pairs.Should().BeEquivalentTo(Matrix.SelectMany(m => m.Permissions.Select(p => (m.Role, p))));
+        var expected = Matrix.SelectMany(m => m.Permissions.Select(p => (m.Role, p))).ToList();
+        if (withReviewCase)
+        {
+            expected.AddRange(Matrix.Select(m => (m.Role, "REVIEW_CASE")));
+        }
+
+        pairs.Should().HaveCount(withReviewCase ? 24 : 20).And.OnlyHaveUniqueItems();
+        pairs.Should().BeEquivalentTo(expected);
 
         (await connection.ExecuteScalarAsync<long>(
             "SELECT count(*) FROM chargeback_diagram.permissions WHERE name IN ('VIEW_TRIAGE', 'RETRIAGE_CASE')")).Should().Be(2);

@@ -15,6 +15,12 @@ public enum TriageEvaluationStatus
 /// produced by AI. <c>TriageLayer</c> is the layer that decided (<c>SCHEME_RULES</c> or <c>ISSUER_TRIAGE</c>);
 /// <c>RoutingPolicyOutcome</c> holds the matched routing rule id. <c>RiskFlags</c> are the fired risk factor ids.
 /// </summary>
+/// <summary>Reads a case's triage evaluations, newest first (Triage endpoint and Human Review workspace).</summary>
+public interface ITriageResultReader
+{
+    Task<IReadOnlyList<TriageResultDto>> ReadForCaseAsync(Guid caseId, CancellationToken cancellationToken);
+}
+
 public sealed record TriageResultDto(
     Guid Id,
     string? TriageLayer,

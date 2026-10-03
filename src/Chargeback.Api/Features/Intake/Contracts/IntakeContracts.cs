@@ -28,6 +28,15 @@ public sealed record SubmitDisputeRequest(
 /// <summary>Dispute persisted; the ten gates run and the status becomes NEW or FLAGGED.</summary>
 public sealed record DisputeAcceptedResponse(Guid DisputeId, string Status);
 
+/// <summary>Reads disputes and their gate trail (used by Intake endpoints and the Human Review workspace).</summary>
+public interface IDisputeReader
+{
+    Task<DisputeDto?> ReadAsync(Guid disputeId, CancellationToken cancellationToken);
+
+    /// <summary>Executed gates in gate order.</summary>
+    Task<IReadOnlyList<GateResultDto>> ReadGatesAsync(Guid disputeId, CancellationToken cancellationToken);
+}
+
 public sealed record DisputeDto(
     Guid Id,
     Guid BankId,

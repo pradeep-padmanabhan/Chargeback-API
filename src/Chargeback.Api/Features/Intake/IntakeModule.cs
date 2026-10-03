@@ -31,6 +31,7 @@ public static class IntakeServiceRegistration
         services.AddOptions<GateOptions>().BindConfiguration(GateOptions.SectionName);
         services.AddSingleton<IGateRegistry, ApprovedGateRegistry>();
         services.AddScoped<IGateEngine, GateEngine>();
+        services.AddScoped<IDisputeReader, GetDispute.DisputeReader>();
         return services;
     }
 }

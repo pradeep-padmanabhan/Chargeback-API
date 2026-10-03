@@ -22,14 +22,14 @@ No tables or columns were added. Each gap needs approval before the phase that d
 
 | ADR | Gap | Blocks |
 |---|---|---|
-| [0101](ADR-0101-review-decision-rationale.md) | Human review decision rationale | Phase 9 |
+| [0101](ADR-0101-review-decision-rationale.md) | Human review decision rationale: append-only `case_review_decisions` (migration 0006). **Accepted and implemented** | Done |
 | [0102](ADR-0102-filing-payload-and-confirmation.md) | Prepared filing payload and human confirmation | Phase 10 |
 | [0103](ADR-0103-triage-rule-version-and-inputs.md) | Triage rule version and inputs | Phase 6 |
 | [0104](ADR-0104-document-upload-stage-audit.md) | Immutable document upload-stage audit | Phase 8 |
 | [0105](ADR-0105-bank-configuration-thresholds.md) | Bank configuration and triage thresholds — superseded by ADR-0119 | Phase 6 |
 | [0106](ADR-0106-idempotency-and-consumer-dedup.md) | API idempotency (90-day TTL, nightly purge) and consumer de-dup — **accepted and implemented** | Done (confirmFiling: Phase 10) |
 | [0107](ADR-0107-zendesk-replay-protection.md) | Zendesk webhook replay protection | Phase 11 |
-| [0108](ADR-0108-ai-decision-log-scope.md) | AI decision log scope, versions and overrides | Phase 8/9 |
+| [0108](ADR-0108-ai-decision-log-scope.md) | AI decision log scope, versions and overrides. Interim summary provenance documented; columns still proposed | Phase 8 |
 | [0109](ADR-0109-case-timeline-source.md) | Case timeline = `domain_events` by case — **accepted** | Done |
 | [0110](ADR-0110-status-vocabularies.md) | Case statuses **approved**; transitions **proposed**; other vocabularies open | Phase 9/10 |
 | [0111](ADR-0111-proposed-permissions.md) | Permissions — CREATE_DISPUTE, ASSIGN_CASE seeded; others proposed | Per feature |

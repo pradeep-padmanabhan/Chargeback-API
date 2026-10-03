@@ -16,6 +16,12 @@ public sealed record DocumentSummaryDto(
     DateTimeOffset UploadedAt,
     DateTimeOffset? ProcessedAt);
 
+/// <summary>Reads a case's document checklist: slots in name order, each with its documents (newest first).</summary>
+public interface IDocumentChecklistReader
+{
+    Task<IReadOnlyList<DocumentSlotDto>> ReadForCaseAsync(Guid caseId, CancellationToken cancellationToken);
+}
+
 /// <summary>Case checklist slot, snapshotted when the case is created.</summary>
 public sealed record DocumentSlotDto(Guid Id, string SlotName, bool IsRequired, string? ExpectedType, IReadOnlyList<DocumentSummaryDto> Documents);
 

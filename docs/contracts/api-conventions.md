@@ -163,6 +163,31 @@ Approved values: `NEW`, `FLAGGED`, `UNDER_REVIEW`, `APPROVED`, `REJECTED`, `FILE
 | `GET /cases/{id}/timeline` | `VIEW_CASES` | The append-only case events, oldest first. Internal: analysts only |
 | `POST /cases/{id}/transitions` body `{action, rationale, expectedVersion}` | `UPDATE_CASE_STATUS` | `Idempotency-Key` required (ADR-0106; replays return `Idempotent-Replayed: true`). See the action table above. There is no `PATCH /status` |
 | `PATCH /cases/{id}/assignment` body `{assignedTo}` | `ASSIGN_CASE` | `If-Match` required. `null` unassigns. The assignee must be able to view the case's bank |
-| `POST /cases/{id}/retriage` body `{reason}` | `UPDATE_CASE_STATUS` | FLAGGED or UNDER_REVIEW cases only; never automatic (ADR-0124) |
+| `POST /cases/{id}/retriage` body `{reason}` | `RETRIAGE_CASE` | FLAGGED or UNDER_REVIEW cases only; never automatic (ADR-0124) |
 
 All of these endpoints are for processor and admin users only. Bank users get the curated Client Portal view in Phase 11.
+
+## Human Review (Phase 9)
+
+| Endpoint | Permission | Notes |
+|---|---|---|
+| `GET /reviews/queue?page&pageSize&sortBy&sortDirection` | `REVIEW_CASE` | Cases in **UNDER_REVIEW** within the caller's bank scope. `humanReviewReason` comes from the latest triage result |
+| `GET /cases/{id}/review` | `REVIEW_CASE` | One read: case, dispute, gate trail, triage results, document checklist, stored AI summary, timeline |
+| `POST /cases/{id}/review/decision` body `{decision, rationale, reasonCodeId, expectedVersion}` | `REVIEW_CASE` | `Idempotency-Key` required. Details below |
+
+**Decision rules:**
+- `decision` is `Approve` or `Reject`, and is required.
+- `rationale` (the analyst's notes) is required: 1–4,000 characters, and no card numbers.
+- **Approve** sends `reasonCodeId` equal to the case's deterministic `derivedReasonCode.id`, as confirmation; it cannot be substituted:
+  - 422 `REASON_CODE_NOT_DERIVED` when the case has none;
+  - 422 `REASON_CODE_MISMATCH` when the id differs.
+- **Reject** omits `reasonCodeId`; sending one returns 400.
+- The case must be UNDER_REVIEW, otherwise 422 `INVALID_TRANSITION`.
+- A stale `expectedVersion` returns 409 `CASE_VERSION_MISMATCH`.
+- **Response:** the recorded decision plus the updated case (APPROVED or REJECTED, with new `validActions`).
+
+**AI summary:**
+- Generated **once** by the workflow when a case first enters UNDER_REVIEW, and only when there is a deterministic result to explain: a completed triage outcome and a derived reason code.
+- No endpoint generates or regenerates it. If AI is disabled or unavailable at that moment, `aiSummary` stays `null`; there is no automatic retry.
+- It is always `advisory: true`, with the model and prompt template that produced it.
+- Writing the summary changes the case `version`, so reload the case before deciding.

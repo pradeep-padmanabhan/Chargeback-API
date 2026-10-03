@@ -185,6 +185,7 @@ public sealed partial class EndpointSecurityTests(PostgresFixture fixture)
     {
         _ when pattern.EndsWith("/transitions", StringComparison.Ordinal) => """{"action":"START_REVIEW","rationale":"isolation test","expectedVersion":0}""",
         _ when pattern.EndsWith("/retriage", StringComparison.Ordinal) => """{"reason":"isolation test"}""",
+        _ when pattern.EndsWith("/review/decision", StringComparison.Ordinal) => """{"decision":"Reject","rationale":"isolation test","expectedVersion":0}""",
         _ => "{}",
     };
 

@@ -161,6 +161,16 @@ internal static class BaselineModel
             e.HasOne<User>().WithMany().HasForeignKey(x => x.PrincipalId);
         });
 
+        // Migration 0006 (ADR-0101): append-only; a database trigger refuses UPDATE and DELETE.
+        model.Entity<CaseReviewDecision>(e =>
+        {
+            e.ToTable("case_review_decisions");
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.HasOne<Case>().WithMany().HasForeignKey(x => x.CaseId);
+            e.HasOne<SchemeReasonCode>().WithMany().HasForeignKey(x => x.ReasonCodeId);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.ReviewedBy);
+        });
+
         ApplyConventions(model);
     }
 

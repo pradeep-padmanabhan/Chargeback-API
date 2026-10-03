@@ -58,5 +58,7 @@ public sealed class ChargebackDbContext(DbContextOptions<ChargebackDbContext> op
 
     public DbSet<IdempotencyKeyRecord> IdempotencyKeys => Set<IdempotencyKeyRecord>();
 
+    public DbSet<CaseReviewDecision> CaseReviewDecisions => Set<CaseReviewDecision>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder) => BaselineModel.Configure(modelBuilder);
 }

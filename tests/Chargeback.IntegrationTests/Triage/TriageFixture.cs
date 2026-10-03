@@ -76,8 +76,14 @@ public class TriageFixture : IAsyncLifetime
                 }
 
                 services.AddSingleton<IBankTriageConfigurationProvider>(BankConfigurations);
+                ConfigureSyntheticServices(services);
             },
         };
+    }
+
+    /// <summary>Extra SYNTHETIC-host registrations for derived suites (e.g. a fake AI capability).</summary>
+    protected virtual void ConfigureSyntheticServices(IServiceCollection services)
+    {
     }
 
     public async Task DisposeAsync()

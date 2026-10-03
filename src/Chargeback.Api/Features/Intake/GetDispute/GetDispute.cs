@@ -24,19 +24,41 @@ public sealed record GetDisputeGatesQuery(Guid DisputeId) : IQuery<IReadOnlyList
     public ScopedResource Resource => new(ScopedResourceKind.Dispute, DisputeId);
 }
 
-internal sealed class GetDisputeHandler(IDapperQueryService db) : IRequestHandler<GetDisputeQuery, Result<DisputeDto>>
+internal sealed class GetDisputeHandler(IDisputeReader disputes) : IRequestHandler<GetDisputeQuery, Result<DisputeDto>>
 {
-    private const string Sql = """
+    public async Task<Result<DisputeDto>> Handle(GetDisputeQuery request, CancellationToken cancellationToken) =>
+        await disputes.ReadAsync(request.DisputeId, cancellationToken) is { } dto ? dto : Errors.ResourceNotFound;
+}
+
+internal sealed class GetDisputeGatesHandler(IDisputeReader disputes) : IRequestHandler<GetDisputeGatesQuery, Result<IReadOnlyList<GateResultDto>>>
+{
+    public async Task<Result<IReadOnlyList<GateResultDto>>> Handle(GetDisputeGatesQuery request, CancellationToken cancellationToken) =>
+        Result.Success(await disputes.ReadGatesAsync(request.DisputeId, cancellationToken));
+}
+
+internal sealed class DisputeReader(IDapperQueryService db) : IDisputeReader
+{
+    private const string DisputeSql = """
         SELECT id, bank_id, cardholder_reference, card_number_masked, transaction_date, transaction_amount,
                currency_code, acquirer_reference_number, merchant_name, intake_channel, status, created_at, updated_at
         FROM chargeback_diagram.disputes
         WHERE id = @DisputeId
         """;
 
-    public async Task<Result<DisputeDto>> Handle(GetDisputeQuery request, CancellationToken cancellationToken)
+    private const string GatesSql = """
+        SELECT gate_number, gate_name, passed, flag_reason, checked_at
+        FROM chargeback_diagram.gate_results
+        WHERE dispute_id = @DisputeId
+        ORDER BY gate_number
+        """;
+
+    public async Task<DisputeDto?> ReadAsync(Guid disputeId, CancellationToken cancellationToken) =>
+        (await db.QuerySingleOrDefaultAsync<DisputeRow>(DisputeSql, new { DisputeId = disputeId }, cancellationToken))?.ToDto();
+
+    public async Task<IReadOnlyList<GateResultDto>> ReadGatesAsync(Guid disputeId, CancellationToken cancellationToken)
     {
-        var row = await db.QuerySingleOrDefaultAsync<DisputeRow>(Sql, new { request.DisputeId }, cancellationToken);
-        return row is null ? Errors.ResourceNotFound : row.ToDto();
+        var rows = await db.QueryAsync<GateRow>(GatesSql, new { DisputeId = disputeId }, cancellationToken);
+        return rows.Select(r => new GateResultDto(r.GateNumber, r.GateName, r.Passed, r.FlagReason, r.CheckedAt, GateExecutionStatuses.FromStored(r.Passed, r.FlagReason))).ToArray();
     }
 
     private sealed class DisputeRow
@@ -81,23 +103,6 @@ internal sealed class GetDisputeHandler(IDapperQueryService db) : IRequestHandle
             Status,
             CreatedAt,
             UpdatedAt);
-    }
-}
-
-internal sealed class GetDisputeGatesHandler(IDapperQueryService db) : IRequestHandler<GetDisputeGatesQuery, Result<IReadOnlyList<GateResultDto>>>
-{
-    private const string Sql = """
-        SELECT gate_number, gate_name, passed, flag_reason, checked_at
-        FROM chargeback_diagram.gate_results
-        WHERE dispute_id = @DisputeId
-        ORDER BY gate_number
-        """;
-
-    public async Task<Result<IReadOnlyList<GateResultDto>>> Handle(GetDisputeGatesQuery request, CancellationToken cancellationToken)
-    {
-        var rows = await db.QueryAsync<GateRow>(Sql, new { request.DisputeId }, cancellationToken);
-        return Result.Success<IReadOnlyList<GateResultDto>>(
-            rows.Select(r => new GateResultDto(r.GateNumber, r.GateName, r.Passed, r.FlagReason, r.CheckedAt, GateExecutionStatuses.FromStored(r.Passed, r.FlagReason))).ToArray());
     }
 
     private sealed class GateRow

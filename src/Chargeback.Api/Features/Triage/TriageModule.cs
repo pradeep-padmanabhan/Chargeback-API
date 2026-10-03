@@ -23,7 +23,13 @@ public sealed record GetCaseTriageQuery(Guid CaseId) : IQuery<IReadOnlyList<Tria
     public ScopedResource Resource => new(ScopedResourceKind.Case, CaseId);
 }
 
-internal sealed class GetCaseTriageHandler(IDapperQueryService db) : IRequestHandler<GetCaseTriageQuery, Result<IReadOnlyList<TriageResultDto>>>
+internal sealed class GetCaseTriageHandler(ITriageResultReader triage) : IRequestHandler<GetCaseTriageQuery, Result<IReadOnlyList<TriageResultDto>>>
+{
+    public async Task<Result<IReadOnlyList<TriageResultDto>>> Handle(GetCaseTriageQuery request, CancellationToken cancellationToken) =>
+        Result.Success(await triage.ReadForCaseAsync(request.CaseId, cancellationToken));
+}
+
+internal sealed class TriageResultReader(IDapperQueryService db) : ITriageResultReader
 {
     private const string Sql = """
         SELECT id, triage_layer, hard_eligibility_pass, routing_policy_outcome, risk_score, risk_flags::text AS risk_flags,
@@ -33,10 +39,10 @@ internal sealed class GetCaseTriageHandler(IDapperQueryService db) : IRequestHan
         ORDER BY created_at DESC, id DESC
         """;
 
-    public async Task<Result<IReadOnlyList<TriageResultDto>>> Handle(GetCaseTriageQuery request, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<TriageResultDto>> ReadForCaseAsync(Guid caseId, CancellationToken cancellationToken)
     {
-        var rows = await db.QueryAsync<Row>(Sql, new { request.CaseId }, cancellationToken);
-        return Result.Success<IReadOnlyList<TriageResultDto>>(rows.Select(r => r.ToDto()).ToArray());
+        var rows = await db.QueryAsync<Row>(Sql, new { CaseId = caseId }, cancellationToken);
+        return rows.Select(r => r.ToDto()).ToArray();
     }
 
     private sealed class Row
@@ -102,6 +108,7 @@ public static class TriageServiceRegistration
         services.AddScoped<IIssuerTriageEngine, IssuerTriageEngine>();
         services.AddScoped<EvaluateCaseTriage.CaseTriageRunner>();
         services.AddSingleton<ISchemeCalendar, SchemeCalendar>();
+        services.AddScoped<ITriageResultReader, TriageResultReader>();
 
         // No approved bank configuration storage exists (ADR-0119): every bank is "not configured".
         services.AddSingleton<IBankTriageConfigurationProvider, PendingApprovalBankTriageConfigurationProvider>();

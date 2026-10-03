@@ -19,6 +19,7 @@ public static class CasesServiceRegistration
     {
         services.AddScoped<ICaseReferenceGenerator, SequenceCaseReferenceGenerator>();
         services.AddScoped<ICaseDetailReader, CaseDetailReader>();
+        services.AddScoped<ICaseTimelineReader, CaseTimelineReader>();
         return services;
     }
 }

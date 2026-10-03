@@ -35,6 +35,20 @@ Do these before starting new phases. Each needs tests, and OpenAPI and `docs/con
 7. ~~**CORS:**~~ **Done.** `ApiCors` exposes `Retry-After`, `Idempotent-Replayed` and `ETag`, and allows `If-Match`, `Idempotency-Key` and `X-Correlation-Id`. Origins come from `Cors:AllowedOrigins`: localhost 5173/3000 in Development; production origins once guide §8 #20 is decided.
 8. **Bulk dry-run:** `POST /intake/bulk/dry-run` returns a `dryRunId` for `POST /intake/bulk`. This is blocked on the storage and retention decision (guide §8 #26); stub it and report.
 
+## Feature work (after the §9 backlog)
+1. ~~**Human Review**~~ **Done.**
+   - Queue = UNDER_REVIEW cases.
+   - Workspace and decision endpoints with `REVIEW_CASE` (all four roles, migration 0006).
+   - Append-only `case_review_decisions` (ADR-0101).
+   - Approve confirms the derived reason code.
+   - One-time asynchronous AI summary (`ReviewSummaryConsumer`).
+2. **Triage & Rules:** the deterministic engine, versioned scheme-rule matching, six outcomes and deadlines are already built (Phase 6). Next comes production readiness, which depends on ADR-0119–0122 (bank configuration, rule format, fact gaps, date basis). Real cases need those decisions to flow end to end.
+3. **Evidence & Documents:**
+   - document slots (checklist snapshot when a case is created);
+   - S3 presigned upload, never streamed through the API server;
+   - independent processing status;
+   - immutable upload-stage audit (ADR-0104).
+
 ## Idempotency key store (ADR-0106): implemented
 - Migration 0004 adds the `idempotency_keys` table. `IdempotencyBehavior` sits between Authorization and Transaction.
 - Error codes: `IDEMPOTENCY_KEY_REUSED` → 422; `IDEMPOTENCY_REQUEST_IN_PROGRESS` → 409 + `Retry-After: 5`; `DLQ_MESSAGE_EXPIRED` → 422.
