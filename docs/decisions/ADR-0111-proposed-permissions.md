@@ -38,3 +38,9 @@ Also needed: the role → permission matrix and the processor-to-bank scope matr
 - **Roles:** none of the three is assigned to any role. Role-permission seeding requires separate product and security approval.
 - **Still proposed, not seeded:** `VIEW_TRIAGE`, `REVIEW_CASE`, `VIEW_FILINGS`, `SEND_PORTAL_MESSAGE`, `MANAGE_BANKS`, `MANAGE_ROLES`, `MANAGE_BANK_SCOPES`, `VIEW_SCHEME_RULES`, `MANAGE_SCHEME_RULES` and `MANAGE_BANK_TRIAGE_CONFIG` (ADR-0119).
 - **Consequence:** `GET /cases/{id}/triage` (`VIEW_TRIAGE`) is still unusable outside tests.
+
+## v1.5 decision (2026-10-01): approved matrix
+- `VIEW_TRIAGE` and the new `RETRIAGE_CASE` are approved and defined in the baseline (fresh installs) and in migration 0005 (existing databases).
+- **Migration 0005 seeds the approved role matrix** (common guide §3.1): Analyst, Senior Analyst, Compliance Officer and Admin, 20 `role_permissions` rows. It grants no bank scope.
+- **Not in the matrix:** `CREATE_DISPUTE` (guide §8 #21). Its assignment is still open.
+- **Still proposed, not seeded:** `REVIEW_CASE`, `VIEW_FILINGS`, `SEND_PORTAL_MESSAGE`, `MANAGE_BANKS`, `MANAGE_ROLES`, `MANAGE_BANK_SCOPES`, `VIEW_SCHEME_RULES`, `MANAGE_SCHEME_RULES` and `MANAGE_BANK_TRIAGE_CONFIG`.

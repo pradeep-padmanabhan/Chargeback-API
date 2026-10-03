@@ -25,6 +25,12 @@ Every failure is `application/problem+json`: `{ type, title, status, detail, cod
 
 The UI can hide actions with `PermissionGuard`, but the backend re-checks every call.
 
+## CORS (browser surfaces)
+- **Allowed origins:** `Cors:AllowedOrigins` per environment. The list is empty by default, so no cross-origin access until hosting domains are approved (guide §8 #20).
+- **Exposed response headers:** `Retry-After`, `Idempotent-Replayed`, `ETag`.
+- **Allowed request headers:** `Authorization`, `Content-Type`, `Idempotency-Key`, `If-Match`, `X-Correlation-Id`.
+- **Credentials:** not allowed (bearer tokens only). Preflight is answered without a token and cached for 10 minutes.
+
 ## Paging
 List endpoints accept `page` (1-based) and `pageSize` (1–100, default 20), and return `{ items, page, pageSize, totalCount, totalPages }`. They also accept `sortBy` (default `createdAt`) and `sortDirection` (`asc` or `desc`, case-insensitive, default `desc`). Each endpoint's supported `sortBy` values are the `sortBy` enum in `openapi-v1.json`; they are camelCase and case-sensitive. An unsupported field returns **400** `INVALID_SORT_FIELD`, and an unsupported direction returns **400** `VALIDATION_FAILED`. Every sort has a unique tie-breaker, so pages are stable. Stub list endpoints validate the sort before returning 501.
 

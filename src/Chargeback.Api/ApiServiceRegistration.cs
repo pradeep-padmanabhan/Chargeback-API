@@ -60,6 +60,7 @@ public static class ApiServiceRegistration
         services.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+        services.AddChargebackCors(configuration);
         services.AddHttpContextAccessor();
         services.AddScoped<ICorrelationIdProvider, HttpCorrelationIdProvider>();
         services.AddScoped<IPrincipalAccessor, HttpContextPrincipalAccessor>();
@@ -82,6 +83,7 @@ public static class ApiServiceRegistration
         app.UseStatusCodePages();
         app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseSerilogRequestLogging();
+        app.UseCors(ApiCors.PolicyName); // before authentication, so preflight requests are answered without a token
         app.UseAuthentication();
         app.UseAuthorization();
 
