@@ -1,73 +1,144 @@
-# Claude Code development instructions — .NET 9 API/backend (v2, aligned with common guide v1.5)
+# Chargeback API — Backend Team Instructions
 
-**Shared source of truth:** Read `CHARGEBACK_FRONTEND_BACKEND_AI_COMMON.md` (v1.5) **in full** before changing code. This file only defines your team's scope; do not create a separate architecture or override the common file. Track unresolved workflow decisions in your implementation report; do not invent answers. Where an ADR in `docs/decisions/` conflicts with the common guide, the guide wins; update the ADR and note it in your report.
+**Read first:** `docs/CHARGEBACK_FRONTEND_BACKEND_AI_COMMON.md` (the shared common guide) before any implementation. This file adds backend-specific scope only — it does not repeat what the common guide already covers. Where an ADR in `docs/decisions/` conflicts with the guide, the guide wins: update the ADR and say so in your report.
 
-**Schema selection:** This handoff uses the diagram-aligned MVP baseline in `CHARGEBACK_DIAGRAM_BASELINE.sql` (migration 0001) plus `db/migrations/0002`–`0005`, for a **new development database only**. Never mix it with the separately supplied expanded 110-feature package.
+## Stack
 
-**Mandatory approach:** Start by inspecting the repository and existing implementation. Propose a short phased plan and file changes; implement only approved or unblocked tasks. Use the ten ER-diagram gates approved in the common guide; never fabricate their missing scheme thresholds, Mastercom endpoints or bank integration contracts. Keep all consequential chargeback decisions deterministic and human-controlled. Write tests with each feature. Report completed files, commands and tests run, assumptions and blocked questions.
+- .NET 9, Carter Minimal API, MediatR v12.x, FluentValidation, EF Core + Dapper
+- PostgreSQL 16+, schema `chargeback_diagram`
+- AWS: ECS Fargate, S3 (evidence), SQS FIFO, SNS, Bedrock (via BedrockAiClient)
+- xUnit, Testcontainers (PostgreSQL). Each suite builds fresh databases from 0001 + all migrations; no Respawn.
 
-## Your scope
-Implement the single .NET 9 ECS-hosted application using Carter endpoints, MediatR behaviors, feature-owned vertical slices and a small Shared Kernel, per common guide §3 and §6.
+## Hard dependency rules — do not upgrade without explicit approval
 
-## Standing rules
-1. **Slices:** Intake, Triage & Rules, Case Management, Human Review, Evidence & Documents, Network Filing, Client Portal & Comms, Admin & Configuration. These are modules, not microservices.
-2. **Pipeline order (approved):** `Logging → Validation → Authorization → Idempotency → Transaction → Handler`. The transaction applies **only to DB commands**; never wrap external network calls (Bedrock, S3, Textract, Mastercom, Zendesk) in a DB transaction.
-3. **Licensing:** MediatR v12.x only (v13+ is commercial). No AutoMapper. FluentAssertions v7.x or Shouldly, never v8+.
-4. **Shared Kernel** stays limited to genuinely common types: Result, Money, CurrencyCode, CardMasked, ReasonCode, current-user interface and event abstractions. Business logic stays in its slice.
-5. **Schema changes:** migrations only (`db/migrations/NNNN_*.sql`): idempotent, transactional, never executed by the application (ADR-0004). The baseline may only receive new permission *definitions*; role assignments and structural changes go in migrations. Migrations 0001–0005 are approved (common guide §5).
-6. **Authorization:** permissions come from `role_permissions` (approved matrix, guide §3.1, seeded by migration 0005). **NULL `bank_id` never implies cross-bank access**: processor users need explicit `user_bank_scopes` rows. Another bank's resource returns **404**; a filter on an unauthorized bank returns **403**. Add database RLS before shared multi-bank environments.
-7. **Case status** changes only through `POST /cases/{caseId}/transitions` (guide §3.2): START_REVIEW, FLAG, UNFLAG, CLOSE. APPROVE/REJECT stay on `/review/decision` and FILE on `/filings/{id}/confirmation`. `validActions` is server-computed; invalid actions return `422 INVALID_TRANSITION`; concurrency uses `expectedVersion` in the body (409 when stale). No PATCH on status.
-8. **Gates:** do not hardcode the diagram's conflicting gate list. Use the registry. Ungated or errored results are `passed = null` (`PENDING_DEFINITION` / `GATE_ERROR`) and the dispute stays FLAGGED (ADR-0117).
-9. **Rules and triage:** deterministic, versioned scheme-rule matching, reason codes, deadlines and the six triage outcomes. AI may explain, never decide. Re-triage is manual only and requires `RETRIAGE_CASE` (guide §3.1, supersedes ADR-0124's permission).
-10. **Documents:** case document slots, immutable upload-stage recording, independent processing status, S3 presigned upload (no streaming through the API server), asynchronous OCR and classification.
-11. **AI:** typed capability interfaces through the common `BedrockAiClient`. Review summaries are generated once and persisted. Human decisions are audited. AI agents never derive reason codes, file claims or change case state. No PAN/CVV in prompts.
-12. **Mastercom:** gateway behind a simulator, with explicit human confirmation before any filing. Outbound submission, query-before-retry and 16-queue polling depend on approved external contracts. Stub filing endpoints with `KNOWN_LIMITATION_MASTERCOM_` until the contracts are signed.
-13. **Tests in CI:** xUnit unit tests, PostgreSQL/API integration tests (ephemeral DB = 0001 + all migrations), RLS/bank-scope tests (scoped-analyst persona, 14+ tests), messaging tests and external contract tests.
+| Package | Constraint | Reason |
+|---|---|---|
+| MediatR | v12.x only | v13+ is commercially licensed |
+| AutoMapper | **Do not use** | Commercial license |
+| FluentAssertions | v7.x only | v8+ is commercially licensed |
+| Shouldly | Allowed as alternative to FluentAssertions | |
 
-## Next tasks: common guide §9 alignment backlog
-Do these before starting new phases. Each needs tests, and OpenAPI and `docs/contracts/` updates.
-1. ~~**Permissions constants:**~~ **Done.** `RetriageCase` added; `ViewTriage` and `RetriageCase` are in `Permissions.Seeded`, and the full suite is green. `Migration0005Tests` covers the upgrade and idempotent re-runs (4 roles, 20 rows, no bank scopes); ADR-0111 updated.
-2. ~~**Transitions:**~~ **Done.** `POST /cases/{id}/transitions` with `validActions`, `422 INVALID_TRANSITION` and `expectedVersion` (409 when stale); `PATCH /status` removed; ADR-0110 updated. `FLAG`/`UNFLAG` stay refused until their transitions are approved.
-3. ~~**Gate results route:**~~ **Done.** `GET /disputes/{disputeId}/gate-results`; `/gates` removed with no alias.
-4. ~~**Errors:**~~ **Done.** ProblemDetails carries `traceId`: the W3C trace id (`Activity.Current?.Id`), falling back to `HttpContext.TraceIdentifier`. `correlationId` is removed from error bodies; the `X-Correlation-Id` header and the outbox `correlationId` are unchanged.
-5. ~~**Re-triage guard:**~~ **Done.** `POST /cases/{id}/retriage` requires `RETRIAGE_CASE`; ADR-0124 updated.
-6. ~~**Pagination:**~~ **Done.** Default `pageSize` 20; `sortBy`/`sortDirection` on every list endpoint (`ISortableRequest` + `SortMap`, checked in `ValidationBehavior`); `400 INVALID_SORT_FIELD`; default `createdAt desc`. Out-of-range `page`/`pageSize` return 400 `VALIDATION_FAILED` (never clamped). Every request carrying a `PageRequest` must implement `IPagedRequest` (unit-tested).
-7. ~~**CORS:**~~ **Done.** `ApiCors` exposes `Retry-After`, `Idempotent-Replayed` and `ETag`, and allows `If-Match`, `Idempotency-Key` and `X-Correlation-Id`. Origins come from `Cors:AllowedOrigins`: localhost 5173/3000 in Development; production origins once guide §8 #20 is decided.
-8. **Bulk dry-run:** `POST /intake/bulk/dry-run` returns a `dryRunId` for `POST /intake/bulk`. This is blocked on the storage and retention decision (guide §8 #26); stub it and report.
+## Approved MediatR pipeline order
 
-## Feature work (after the §9 backlog)
-1. ~~**Human Review**~~ **Done.**
-   - Queue = UNDER_REVIEW cases.
-   - Workspace and decision endpoints with `REVIEW_CASE` (all four roles, migration 0006).
-   - Append-only `case_review_decisions` (ADR-0101).
-   - Approve confirms the derived reason code.
-   - One-time asynchronous AI summary (`ReviewSummaryConsumer`).
-2. **Triage & Rules:** the deterministic engine, versioned scheme-rule matching, six outcomes and deadlines are already built (Phase 6). Next comes production readiness, which depends on ADR-0119–0122 (bank configuration, rule format, fact gaps, date basis). Real cases need those decisions to flow end to end.
-3. ~~**Evidence & Documents**~~ **Done.**
-   - Declare, then one-time pre-signed PUT, then confirm, then asynchronous classification (`DocumentClassificationConsumer`).
-   - Independent upload and processing statuses.
-   - Immutable upload stage, soft delete, append-only `document_classifications` (migration 0007).
-   - S3 is the `KNOWN_LIMITATION_S3_` stub (`KnownLimitationS3Service`); replace it once guide §8 #29 is decided.
-   - OCR (Textract) is open (§8 #32).
-   - Checklist seeding per scheme is open (§8 #28).
-4. ~~**Admin & Configuration (bank users)**~~ **Done.**
-   - Bank list and detail, plus bank-user list, invite, update and soft delete (`MANAGE_BANK_USERS`), and `GET /admin/roles`.
-   - Migration 0008.
-   - Still stubbed: bank creation, bank-scope grants, scheme rules. Open: bank-admin role (§8 #33), Cognito provisioning (§8 #34).
-5. ~~**Client Portal & Communications**~~ **Done.**
-   - Bank-user portal: case list and detail, message thread, support-ticket stub (`KNOWN_LIMITATION_ZENDESK_`).
-   - Analyst thread endpoints (`VIEW_CASES`).
-   - Migration 0009: append-only `portal_messages`.
-   - RLS deferred to ADR-0006. Open: portal status vocabulary (§8 #37), Zendesk (§8 #38).
+```
+Logging → Validation → Authorization → RlsSetup → Idempotency → Transaction → Handler
+```
 
-## Idempotency key store (ADR-0106): implemented
-- Migration 0004 adds the `idempotency_keys` table. `IdempotencyBehavior` sits between Authorization and Transaction.
-- Error codes: `IDEMPOTENCY_KEY_REUSED` → 422; `IDEMPOTENCY_REQUEST_IN_PROGRESS` → 409 + `Retry-After: 5`; `DLQ_MESSAGE_EXPIRED` → 422.
-- A replay sends `Idempotent-Replayed: true`. Failed attempts are not stored. Keys and `processed_domain_events` are purged after 90 days by the nightly job (advisory lock, batches of 5,000). Health reports `degraded` after 3 consecutive failed nights.
-- Invert any remaining `KNOWN_LIMITATION_ADR0106_` stub once 3 consecutive integration runs pass with 0004 applied.
+`PipelineOrderTests` enforce this order. `RlsSetupBehavior` (ADR-0006) establishes the request's database scope after authorization has resolved the caller:
+- the caller's banks (`ICurrentUser.BankScopes`), for bank-scoped, resource-scoped and scope-filtered requests;
+- system scope, for `[SystemOperation]` workflow steps;
+- nothing, for `[NotBankScoped]` requests (fail closed).
 
-## Coordination contract
-Publish and version OpenAPI (`docs/contracts/openapi-v1.json`) and event contracts for the frontend and AI teams. Do not invent table names beyond the selected schema and approved migrations. Use camelCase JSON, UTC ISO-8601 timestamps, `YYYY-MM-DD` deadline dates, RFC 7807 errors with a machine-readable `code`, and `CB-YYYY-NNNNNN` case references. Mask PAN to the last 4 digits everywhere; never put full PAN/CVV in logs, AI prompts, persisted case fields or response bodies.
+`IDatabaseScope` writes the scope as session settings (`app.scope`, `app.bank_ids` as a `uuid[]`) on **every connection the request opens**: an EF connection interceptor, and Dapper right after it opens. It is reapplied immediately if the scope changes on an open connection.
 
-## Exit criteria
-A tested vertical slice demonstrates endpoint → MediatR → handler → PostgreSQL with scoped API access, mocked AI and third-party adapters, and a passing CI. Report unresolved decisions (common guide §8).
+Do **not** use `SET LOCAL` inside `TransactionBehavior`. Queries and non-transactional commands open no transaction, and one `app.bank_id` cannot serve a processor scoped to several banks.
+
+Authorization's resource lookup (`ResourceBankResolver`) runs under `ElevateToSystemAsync`, because RLS would otherwise hide the row it must locate.
+
+## Feature slices — current status
+
+| Slice | Status | Migration |
+|---|---|---|
+| Intake | Scaffolded; gate registry built; blocked on ADR-0119–0122 for real config | 0001 |
+| Triage & Rules | Engine built; **blocked on ADR-0119–0122** — do not invent thresholds or rule defaults | 0001 |
+| Case Management | ✓ Shipped (incl. FLAG/UNFLAG, v1.9) | 0003 |
+| Human Review | ✓ Shipped | 0006 |
+| Evidence & Documents | ✓ Shipped | 0007 |
+| Network Filing — Mastercom | 501 stubs marked `KNOWN_LIMITATION_MASTERCOM_` — blocked on external contracts | — |
+| Client Portal & Communications | ✓ Shipped | 0009 |
+| Admin & Configuration | ✓ Shipped | 0008 |
+| Row-level security | ✓ Shipped | 0010 |
+
+## Migrations — approved and shipped (0001–0010)
+
+All scripts live in `db/migrations/` (0001 is `docs/CHARGEBACK_DIAGRAM_BASELINE.sql`). All are idempotent and transactional, and the application never runs them. **None applied to a shared environment yet.**
+
+| # | File | Key contents |
+|---|---|---|
+| 0001 | baseline | Full diagram schema; `user_bank_scopes`; permission definitions only |
+| 0002 | `add_create_dispute_permission` | `CREATE_DISPUTE` — defined, **not assigned to any role** |
+| 0003 | `case_management` | `processed_domain_events`; `ASSIGN_CASE`; case status CHECK; `case_reference_seq` |
+| 0004 | `idempotency_keys` | `idempotency_keys` with `resource_id` uuid and `completed_at timestamptz` |
+| 0005 | `role_permission_matrix` | 4 PROCESSOR/ADMIN roles; 20 role_permission rows; `VIEW_TRIAGE`, `RETRIAGE_CASE` |
+| 0006 | `human_review` | `case_review_decisions` (append-only trigger); `REVIEW_CASE`; 4 role grants |
+| 0007 | `evidence_documents` | `documents` upload status / soft delete + immutability trigger; `document_classifications`; `UPLOAD_DOCUMENT`, `VIEW_DOCUMENTS`; 8 grants |
+| 0008 | `admin_user_management` | `MANAGE_BANK_USERS` (**Admin only**); `Bank User` role (BANK type, no permissions); `users.invited_at/deleted_at/deleted_by` |
+| 0009 | `portal_messages` | Baseline `portal_messages`: 1–2000 char CHECK, index, append-only trigger |
+| 0010 | `row_level_security` | RLS enabled + forced on 12 bank-owned tables; policies over `app.scope` / `app.bank_ids`; `chargeback_app` / `chargeback_migrations` roles |
+
+New structural changes go in a new numbered migration. The baseline only receives new permission *definitions*.
+
+## Row-level security (migration 0010) — reference
+
+**Protected tables** (one `bank_scope` policy each, `FORCE ROW LEVEL SECURITY`):
+
+| Table | Bank reached through |
+|---|---|
+| `disputes` | `bank_id` |
+| `cases`, `gate_results` | `dispute_id → disputes.bank_id` |
+| `triage_results`, `document_slots`, `documents`, `case_review_decisions`, `portal_messages`, `zendesk_tickets`, `mastercom_filings` | `case_id → cases → disputes` |
+| `document_classifications` | `document_id → documents → case` |
+| `filing_api_log` | `filing_id → mastercom_filings → case` |
+
+A row is visible when `app.scope = 'system'`, or when its bank is in `app.bank_ids`. Unset settings mean no rows.
+
+**Not protected:**
+- `roles`, `permissions`, `role_permissions`, `users` (the sign-in lookup runs before any bank is known), `user_bank_scopes`, `banks`, `scheme_reason_codes`, `scheme_rule_specs`, `idempotency_keys`, `processed_domain_events`;
+- `domain_events` and `ai_decision_logs`: deferred, because they are written outside the request scope (guide §8 #42).
+
+**Roles:**
+- `chargeback_app`: NOLOGIN, NOBYPASSRLS, with DML grants.
+- `chargeback_migrations`: NOLOGIN, BYPASSRLS.
+
+The API **must** connect as a non-superuser login that is a member of `chargeback_app`; superusers and BYPASSRLS roles skip RLS silently. `KNOWN_LIMITATION_RLS_PRODUCTION_GRANTS_`: logins, Secrets Manager passwords and the final grant tightening are created at deploy time.
+
+**Tests:**
+- `RowLevelSecurityTests`: database level, as a non-superuser `chargeback_app` login.
+- `RowLevelSecurityApiTests`: the full API journey with RLS enforced.
+- `RlsSetupBehaviorTests`: unit tests.
+
+The ordinary test hosts connect as the container superuser, so RLS is bypassed there. Any new bank-owned table needs a policy in a new migration, plus coverage in both RLS test classes.
+
+## Branch and PR
+
+- **Branch:** `feat/p1-contract-alignment`, 11 commits and 843 tests as of v1.9. PR: `https://github.com/pradeep-padmanabhan/Chargeback-API/compare/main...feat/p1-contract-alignment`.
+- **New work:** add commits on top while the PR is open; after it merges, branch from `main`.
+
+## Security rules — absolute, non-negotiable
+
+- `NULL bank_id` on a `users` row **never implies cross-bank access**. Explicit `user_bank_scopes` rows are required.
+- Another bank's resource always returns `404` (existence not revealed), never `403`.
+- PAN masked to last 4 everywhere. Full PAN never in logs, AI prompts, case fields, response bodies.
+- AI agents never derive reason codes, never file claims, never change case state.
+- Explicit human confirmation required before any Mastercom filing — no background worker may bypass this.
+- `CREATE_DISPUTE` is not assigned to any role. Do not assign without product and security approval.
+- `MANAGE_BANK_USERS` is Admin-only. No other role.
+- `FILED → CLOSED` is Admin-only, manual. No auto-close.
+
+## Blocked items — do not unblock without approval
+
+| Item | Blocked on |
+|---|---|
+| Triage real config | ADR-0119–0122 (bank thresholds, rule format, dispute facts, date basis) |
+| Mastercom gateway | External contracts + sandbox credentials (§8 #3) |
+| `POST /intake/bulk/dry-run` | §8 #26 (dry-run storage design) |
+| `CREATE_DISPUTE` role assignment | Product + security approval (§8 #21) |
+| `SUBMIT_MASTERCOM` role assignment | Filing phase (§8 #43) |
+| Cognito invite flow | §8 #34 (infrastructure/security decision) |
+| S3 real config (bucket, KMS, IAM) | §8 #29 (infrastructure) |
+| RLS for `domain_events` / `ai_decision_logs` | §8 #42 (bank column or dispatcher system scope) |
+
+## Stub naming convention
+
+Unresolved external dependencies are wrapped in named stubs (grep for the marker):
+
+- `KNOWN_LIMITATION_MASTERCOM_` — Mastercom filing endpoints (`FilingModule`)
+- `KNOWN_LIMITATION_S3_` — evidence storage (`KnownLimitationS3Service`)
+- `KNOWN_LIMITATION_INVITE_EMAIL_` — bank user invitation email/token
+- `KNOWN_LIMITATION_ZENDESK_` — Zendesk ticket creation (`KnownLimitationZendeskClient`)
+- `KNOWN_LIMITATION_RLS_PRODUCTION_GRANTS_` — RLS logins/grant tightening (migration 0010)
+- `KNOWN_LIMITATION_ADR0106_` — retired: idempotency is implemented and no such stubs remain
+
+## Reporting format
+
+After each task, report: endpoints or migrations built, commands/tests run, test count total, assumptions made, new blocked items or open questions.

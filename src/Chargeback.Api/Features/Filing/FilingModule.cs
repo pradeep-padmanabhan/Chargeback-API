@@ -61,7 +61,13 @@ internal sealed class GetFilingApiLogHandler : NotImplementedHandler<GetFilingAp
 
 public sealed class FilingModule : ICarterModule
 {
-    private const string StubPhase = "Phase 10 (Mastercom simulator + human-confirmed filing)";
+    /// <summary>
+    /// KNOWN_LIMITATION_MASTERCOM_: Mastercom endpoint mappings, scheme values and sandbox credentials are not approved
+    /// (guide §8 #3), so the filing endpoints stay 501 stubs. Explicit human confirmation remains mandatory when built.
+    /// </summary>
+    public const string KnownLimitationMarker = "KNOWN_LIMITATION_MASTERCOM_";
+
+    private const string StubPhase = "Phase 10 (Mastercom simulator + human-confirmed filing) — " + KnownLimitationMarker;
 
     public void AddRoutes(IEndpointRouteBuilder app)
     {
