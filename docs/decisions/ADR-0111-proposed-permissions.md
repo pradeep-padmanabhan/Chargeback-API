@@ -61,7 +61,7 @@ Also needed: the role → permission matrix and the processor-to-bank scope matr
 ## Client Portal decision (2026-10-04)
 - **Portal endpoints** carry no permission code. The gate is `userType = BANK` plus the user's own bank (`users.bank_id`).
 - **Analyst message endpoints** (`GET/POST /cases/{id}/messages`) use `VIEW_CASES`, as briefed.
-- **`SEND_PORTAL_MESSAGE`** remains proposed and unused (guide §8 #39).
+- **`SEND_PORTAL_MESSAGE`** remains proposed and unused (guide §8 #38).
 
 ## Guide v1.8 correction (2026-10-04)
 `MANAGE_BANK_USERS` is **Admin only**. Migration 0008 now grants it to the Admin role alone (corrected before any environment applied it).

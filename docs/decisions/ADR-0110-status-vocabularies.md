@@ -77,7 +77,7 @@ The transition table above is **approved**, with one change: `FILED → CLOSED` 
 - **Still open:** what `FLAG` and `UNFLAG` move between, direct close of NEW/FLAGGED/UNDER_REVIEW, and the status effect of the `Invalid` and `AutoRefund` triage outcomes.
 
 ## Client Portal (2026-10-04)
-The portal returns the **raw case status** for now. The bank-facing vocabulary, meaning which values banks see and how internal statuses map to them, is still open (guide §8 #37).
+The portal returns the **raw case status** for now. The bank-facing vocabulary, meaning which values banks see and how internal statuses map to them, is still open (guide §8 #44).
 
 ## Guide v1.8 (2026-10-04): FLAG and UNFLAG approved and implemented
 - `FLAG`: NEW → FLAGGED.

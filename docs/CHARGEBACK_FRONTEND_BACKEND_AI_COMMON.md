@@ -1,6 +1,12 @@
 # Chargeback Management Platform — Unified Frontend, Backend & AI Development Guide
 
-**Version:** 1.9 — Row-level security shipped (migration 0010, ADR-0006); FLAG/UNFLAG transitions implemented; `MANAGE_BANK_USERS` Admin-only and `/admin/banks` default `bankName asc` applied (commit `973f1b0`, not before the push as v1.8 stated); v1.8 statements corrected against the code (Human Review contract, migration names, message table, document statuses). Previous: v1.8 — Client Portal & Communications shipped (migration 0009).
+**Version:** 1.10 — merges the team's v1.9 additions with the facts checked against the code:
+- **New sections:** §5.1 RLS design, the shared message thread note, the review decision body, and §8 #41–43 in the team's numbering. The portal status vocabulary moves to #44.
+- **Kept as shipped:** the decision contract: `Approve`/`Reject`, rationale 1–4,000 characters, `409 CASE_VERSION_MISMATCH`, and no reason-code lookup endpoint.
+- **Confirmed:** `FILE` needs `SUBMIT_MASTERCOM`.
+- **Corrected:** migration names (`0008_admin_user_management.sql`, `0010_row_level_security.sql`), the protected-table list (no `case_events`, `users` or `gate_definitions`), the document statuses, and the dev CORS origins.
+
+Previous: v1.9 — RLS shipped (migration 0010).  
 **Source:** Six user-supplied diagrams plus session decisions (Sep–Oct 2026).
 **Scope:** A shared handoff for UI, API, AI and database engineers.
 **Important:** Diagram-aligned MVP baseline. Do not mix with the expanded 110-feature package.
@@ -92,7 +98,7 @@ The Migration column shows which migration grants the permission to roles. Permi
 - **`MANAGE_BANK_USERS` is Admin-only.** Migration 0008 was corrected in commit `973f1b0`. The earlier PR commits granted it to all four roles, but no environment had applied it.
 - **`/admin/banks` defaults to `bankName asc`** when neither `sortBy` nor `sortDirection` is sent (commit `973f1b0`).
 - **`CREATE_DISPUTE`** (ADR-0111) is defined but **not in the approved matrix**. Intake is unusable outside tests until it is assigned (§8 #21). Do not assign it without explicit product and security approval.
-- **`SUBMIT_MASTERCOM`** is seeded but held by no role, so `FILE` never appears in `validActions` today (§8 #43).
+- **`SUBMIT_MASTERCOM`** is seeded but held by no role, so `FILE` never appears in `validActions` until the filing phase assigns it (§8 #43, confirmed).
 - **Still proposed and not seeded:** `VIEW_FILINGS`, `SEND_PORTAL_MESSAGE`, `MANAGE_BANKS`, `MANAGE_ROLES`, `MANAGE_BANK_SCOPES`, `VIEW_SCHEME_RULES`, `MANAGE_SCHEME_RULES`, `MANAGE_BANK_TRIAGE_CONFIG`.
 - **Unused legacy codes,** seeded but held by no role: `VIEW_BANKS`, `CREATE_BANK_USER`, `UPDATE_BANK_USER`, `DISABLE_BANK_USER` (§8 #36).
 - **Frontend:** permission codes are declared in `packages/domain/src/auth.ts`.
@@ -138,6 +144,8 @@ Idempotency-Key: <uuid>
 | CLOSED | `[]` |
 
 Bank users get none.
+
+**`FILE` action (§8 #43):** `FILE` appears in `validActions` for an APPROVED case **only for a caller holding `SUBMIT_MASTERCOM`**, which no role holds today. So `FILE` never appears until the filing phase assigns it. This avoids a button whose call would fail (403/501). It is confirmed behaviour, not a gap.
 
 **Case creation rule:** Every dispute gets a case. Gate failures → FLAGGED; all gates pass → NEW + auto-triage.
 
@@ -194,7 +202,26 @@ Replay returns stored response with `Idempotent-Replayed: true`. Failed attempts
 | `GET /cases/{caseId}/review` | `REVIEW_CASE` | Workspace: case + dispute + gates + triage + documents + AI summary + timeline |
 | `POST /cases/{caseId}/review/decision` | `REVIEW_CASE` | Body and errors below; `Idempotency-Key` required |
 
-Decision body: `{decision: "Approve"\|"Reject", rationale, reasonCodeId?, expectedVersion}`.
+**`POST /cases/{caseId}/review/decision` body** (as shipped; see `openapi-v1.json`):
+```json
+{
+  "decision": "Approve | Reject",
+  "rationale": "string (required, 1–4000 chars, no card numbers)",
+  "reasonCodeId": "uuid | null  (required for Approve = the case's derivedReasonCode.id; omit/null for Reject)",
+  "expectedVersion": 123
+}
+```
+
+**Success:** 200 with the recorded decision and the updated case (new `status`, `version`, `validActions`).
+
+**Errors:**
+- `409 CASE_VERSION_MISMATCH` (the same code as `/transitions`) when `expectedVersion` is stale. The frontend must reload the case and reset the form; it must not auto-resubmit.
+- `422 INVALID_TRANSITION` when the case is not UNDER_REVIEW.
+- `422 REASON_CODE_NOT_DERIVED` or `REASON_CODE_MISMATCH` on Approve.
+
+**Reason code:** there is no reason-code lookup endpoint. The only acceptable code is the deterministic `derivedReasonCode` already returned on the case and in the review workspace. Neither analysts nor AI choose among codes.
+
+The details below repeat the same rules.
 - `rationale` is required (1–4,000 characters).
 - **Approve** sends back the case's derived reason code as `reasonCodeId`; otherwise 422 `REASON_CODE_NOT_DERIVED` or `REASON_CODE_MISMATCH`.
 - **Reject** omits `reasonCodeId`.
@@ -227,6 +254,8 @@ Decision body: `{decision: "Approve"\|"Reject", rationale, reasonCodeId?, expect
 |---|---|---|
 | `POST /cases/{caseId}/messages` | `VIEW_CASES` | Analyst reply in `portal_messages`; stored `PROCESSOR`, shown as `senderType: ANALYST` |
 | `GET /cases/{caseId}/messages` | `VIEW_CASES` | Full thread view for analyst, with sender ids |
+
+**Portal message thread:** bank users and analysts share one thread per case in `portal_messages`. The API `senderType` is `BANK_USER` or `ANALYST` (stored as `BANK` / `PROCESSOR`); the frontend should distinguish them visually. There is no analyst-only notes resource (§8 #42), so don't build one until it's decided.
 
 **Deactivation timing note:** deactivation takes effect on the next API request (session reloads user); Cognito sessions/refresh tokens are not revoked (§8 #35).
 
@@ -273,7 +302,7 @@ All capabilities return "unavailable" (placeholders). AI summary written once on
 - **Protected tables:** `disputes`, `cases`, `gate_results`, `triage_results`, `document_slots`, `documents`, `document_classifications`, `case_review_decisions`, `portal_messages`, `zendesk_tickets`, `mastercom_filings`, `filing_api_log`.
 - **Not protected:**
   - users, roles and configuration (the sign-in lookup runs before any bank is known);
-  - `domain_events` and `ai_decision_logs`, which are deferred (§8 #42).
+  - `domain_events` and `ai_decision_logs`, which are deferred (§8 #42; see §5.1).
 - **API login.** The API must connect as a non-superuser login in `chargeback_app`. Logins and passwords are created at deploy time (`KNOWN_LIMITATION_RLS_PRODUCTION_GRANTS_`).
 
 **Document upload immutability:**
@@ -284,6 +313,46 @@ All capabilities return "unavailable" (placeholders). AI summary written once on
 - **Classifications** are in `document_classifications`: one row per run, never updated.
 
 **10 gates (approved registry order):** 1 Required Fields; 2 Transaction Lookup; 3 Card/Account Check; 4 Amount/Currency Check; 5 Time Window Check; 6 Duplicate Check; 7 Merchant/Category Check; 8 Reason Code Derivation; 9 Document Requirement; 10 Compliance Check.
+
+## 5.1 Row-Level Security design (ADR-0006, migration 0010)
+
+**Session scope.** The API writes two settings on **every database connection it opens**, and again when the scope changes:
+- `app.scope`: `banks` / `system` / empty;
+- `app.bank_ids`: a `uuid[]` of all the caller's banks.
+
+The scope is set per connection, not per transaction, because reads open no transaction. `RlsSetupBehavior` decides the scope:
+- the caller's banks, for bank-, resource- and filter-scoped requests;
+- `system`, for workflow steps and authorization's resource lookup;
+- nothing, for `[NotBankScoped]` requests.
+
+Unset settings mean no rows.
+
+**Database roles:**
+- `chargeback_app`: the API's runtime role; RLS is enforced (NOBYPASSRLS).
+- `chargeback_migrations`: the migration runner; BYPASSRLS.
+
+Both are NOLOGIN group roles. The logins, and their passwords from Secrets Manager, are created at deploy time (`KNOWN_LIMITATION_RLS_PRODUCTION_GRANTS_`).
+
+**Protected tables (12)**, each with `FORCE ROW LEVEL SECURITY` and one `bank_scope` policy:
+- `disputes`: directly through `bank_id`;
+- `cases` and `gate_results`: through their dispute;
+- `triage_results`, `document_slots`, `documents`, `case_review_decisions`, `portal_messages`, `zendesk_tickets` and `mastercom_filings`: through their case;
+- `document_classifications`: through its document;
+- `filing_api_log`: through its filing.
+
+**Not protected:**
+- `roles`, `permissions`, `role_permissions`, `users` (the sign-in lookup runs before any bank is known), `user_bank_scopes`, `banks`, `scheme_reason_codes`, `scheme_rule_specs`, `idempotency_keys`, `processed_domain_events`;
+- `domain_events` and `ai_decision_logs`: written outside the request scope (§8 #42).
+
+There are no `case_events` or `gate_definitions` tables.
+
+**Policy pattern** (helper functions, `SECURITY INVOKER`):
+- Direct: `rls_is_system() OR bank_id = ANY(rls_bank_ids())`.
+- Indirect: `rls_dispute_visible(dispute_id)` or `rls_case_visible(case_id)`. These are `EXISTS` look-ups through `cases → disputes.bank_id`; `cases` has no `bank_id` column.
+
+`rls_bank_ids()` reads `current_setting('app.bank_ids', true)`, so an absent setting yields an empty array.
+
+**Critical infrastructure requirement (§8 #41).** The API's database login **must be a non-superuser member of `chargeback_app`**. With a superuser or BYPASSRLS login, RLS is silently skipped and every bank's data is visible. The migration cannot enforce this; it is a DevOps action at provisioning.
 
 ## 6. Canonical end-to-end process
 
@@ -329,7 +398,7 @@ The API server never streams file bytes.
 | 4 | Full permission catalogue for SDK and client portal intake endpoints | **Open** — case/triage/document/admin permissions approved |
 | 5 | Document scheme_stage assigned at upload | **Resolved** — client assigns at declaration (ADR-0104) |
 | 6 | FAQ vector/KB store and source/version/tenant filtering | **Open** |
-| 7 | Production RLS/grants, DR data residency, failover AI behavior | **Partially resolved** — RLS shipped (0010); production logins/grants (`KNOWN_LIMITATION_RLS_PRODUCTION_GRANTS_`), DR and AI failover open |
+| 7 | Production RLS/grants, DR data residency, failover AI behavior | **Partially resolved** — RLS shipped (migration 0010); production database login provisioning still required (§8 #41); DR and AI failover open |
 | 8 | ADR-0119 — Bank configuration and thresholds table design | **Open — awaiting business approval** |
 | 9 | ADR-0120 — Rule condition format in `scheme_rule_specs.conditions_json` | **Open — awaiting business approval** |
 | 10 | ADR-0121 — Missing dispute facts (claim type, MCC) | **Open — awaiting business approval** |
@@ -363,9 +432,10 @@ The API server never streams file bytes.
 | 38 | `SEND_PORTAL_MESSAGE` permission: currently gated on `VIEW_CASES` for analysts; needs dedicated permission if message access is to be separated from case read access | **Open** |
 | 39 | Zendesk real integration: ticket-creation webhook, field mappings, auth | **Open** — stubbed behind `KNOWN_LIMITATION_ZENDESK_` |
 | 40 | Portal document upload: bank users uploading evidence through Client Portal | **Open** — portal users currently read-only on documents (§8 #31) |
-| 41 | Bank-facing case status vocabulary for the Client Portal (ADR-0110) | **Open** — the portal shows raw case statuses |
-| 42 | RLS for `domain_events` and `ai_decision_logs` (written outside the request scope; user events have no case) | **Open** — needs a bank column or a dispatcher system scope (ADR-0006) |
-| 43 | `SUBMIT_MASTERCOM` role assignment (decides who sees `FILE` in `validActions`) | **Open** — with the filing phase |
+| 41 | Production database login provisioning: the API login must be a non-superuser member of `chargeback_app`; a superuser silently bypasses RLS | **Open — infrastructure/DevOps action required before any shared environment** |
+| 42 | `domain_events` and `ai_decision_logs` are not protected by RLS (written outside the request scope by the outbox and AI audit; user events have no case). Also: no analyst-only notes resource exists — `portal_messages` is the shared thread (`BANK_USER` / `ANALYST`); private analyst notes would need a separate `case_notes` table | **Open** — do not build analyst-only notes until decided |
+| 43 | `FILE` in `validActions` requires `SUBMIT_MASTERCOM`, which no role holds, so `FILE` does not appear until the filing phase assigns it | **Resolved — confirmed behaviour; no action needed** |
+| 44 | Bank-facing case status vocabulary for the Client Portal (ADR-0110) | **Open** — the portal shows raw case statuses |
 
 **Triage engine built but blocked:** ADR-0119–0122 must be resolved before real bank configuration and derived reason codes can be produced. Do not invent defaults.
 
@@ -386,10 +456,11 @@ The API server never streams file bytes.
 | Evidence & Documents — migration 0007, 5 endpoints | ✓ Shipped |
 | Admin & Configuration — migration 0008 (`MANAGE_BANK_USERS` Admin-only), bank/user/role endpoints | ✓ Shipped |
 | Client Portal & Communications — migration 0009, portal cases/messages/Zendesk stub, analyst message thread | ✓ Shipped |
-| Row-level security (ADR-0006) — migration 0010, `RlsSetupBehavior` | ✓ Shipped (v1.9) |
+| Row-level security (ADR-0006) — migration 0010, `RlsSetupBehavior`, 12 tables | ✓ Shipped (v1.9) |
+| Production DB login provisioning (non-superuser member of `chargeback_app`) | Infrastructure action required (§8 #41) |
 | `POST /intake/bulk/dry-run` | ⛔ Blocked on §8 #26 |
 
-**Next backend task:** none of the remaining items is unblocked. The candidates in §8 each need a decision first:
+**Next backend task:** none of the remaining items is unblocked; §8 #41 is the infrastructure team's. The candidates in §8 each need a decision first:
 - `CREATE_DISPUTE`, #21;
 - ADR-0119–0122;
 - Mastercom contracts, #3;

@@ -1,6 +1,6 @@
 # Chargeback API — Backend Team Instructions
 
-**Read first:** `docs/CHARGEBACK_FRONTEND_BACKEND_AI_COMMON.md` (the shared common guide) before any implementation. This file adds backend-specific scope only — it does not repeat what the common guide already covers. Where an ADR in `docs/decisions/` conflicts with the guide, the guide wins: update the ADR and say so in your report.
+**Read first:** `docs/CHARGEBACK_FRONTEND_BACKEND_AI_COMMON.md` (the shared common guide, v1.10) before any implementation. This file adds backend-specific scope only — it does not repeat what the common guide already covers. Where an ADR in `docs/decisions/` conflicts with the guide, the guide wins: update the ADR and say so in your report.
 
 ## Stack
 
@@ -90,7 +90,7 @@ A row is visible when `app.scope = 'system'`, or when its bank is in `app.bank_i
 - `chargeback_app`: NOLOGIN, NOBYPASSRLS, with DML grants.
 - `chargeback_migrations`: NOLOGIN, BYPASSRLS.
 
-The API **must** connect as a non-superuser login that is a member of `chargeback_app`; superusers and BYPASSRLS roles skip RLS silently. `KNOWN_LIMITATION_RLS_PRODUCTION_GRANTS_`: logins, Secrets Manager passwords and the final grant tightening are created at deploy time.
+The API **must** connect as a non-superuser login that is a member of `chargeback_app`; superusers and BYPASSRLS roles skip RLS silently (guide §8 #41: an infrastructure action before any shared environment). `KNOWN_LIMITATION_RLS_PRODUCTION_GRANTS_`: logins, Secrets Manager passwords and the final grant tightening are created at deploy time.
 
 **Tests:**
 - `RowLevelSecurityTests`: database level, as a non-superuser `chargeback_app` login.
@@ -123,10 +123,12 @@ The ordinary test hosts connect as the container superuser, so RLS is bypassed t
 | Mastercom gateway | External contracts + sandbox credentials (§8 #3) |
 | `POST /intake/bulk/dry-run` | §8 #26 (dry-run storage design) |
 | `CREATE_DISPUTE` role assignment | Product + security approval (§8 #21) |
-| `SUBMIT_MASTERCOM` role assignment | Filing phase (§8 #43) |
+| `SUBMIT_MASTERCOM` role assignment | Filing phase (§8 #43: `FILE` stays hidden until then — confirmed) |
 | Cognito invite flow | §8 #34 (infrastructure/security decision) |
 | S3 real config (bucket, KMS, IAM) | §8 #29 (infrastructure) |
 | RLS for `domain_events` / `ai_decision_logs` | §8 #42 (bank column or dispatcher system scope) |
+| Analyst-only case notes | §8 #42 (needs a `case_notes` decision; `portal_messages` is the shared thread) |
+| Production DB login for the API | §8 #41 (infrastructure) |
 
 ## Stub naming convention
 
