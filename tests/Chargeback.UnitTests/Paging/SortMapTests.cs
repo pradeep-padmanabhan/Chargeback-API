@@ -110,6 +110,18 @@ public sealed class SortMapTests
     }
 
     [Fact]
+    public void Admin_banks_default_to_bank_name_ascending_but_honour_an_explicit_sort()
+    {
+        ListBanksQuery.Sorts.OrderBy(new PageRequest()).Should().Be("ORDER BY b.bank_name ASC NULLS LAST, b.id ASC");
+        ListBanksQuery.Sorts.OrderBy(new PageRequest(sortBy: "createdAt")).Should().Be("ORDER BY b.created_at DESC NULLS LAST, b.id DESC");
+        ListBanksQuery.Sorts.OrderBy(new PageRequest(sortDirection: "desc")).Should().Be("ORDER BY b.bank_name DESC NULLS LAST, b.id DESC");
+    }
+
+    [Fact]
+    public void Default_sort_must_be_a_supported_field() =>
+        ((Action)(() => new SortMap("c.id", ("createdAt", "c.created_at")).WithDefaultSort("bogus", SortMap.Ascending))).Should().Throw<ArgumentException>();
+
+    [Fact]
     public void Every_list_endpoint_declares_created_at()
     {
         SortMap[] maps = [ListBanksQuery.Sorts, ListBankUsersQuery.Sorts, ListCasesQuery.Sorts, ListPortalCasesQuery.Sorts, GetReviewQueueQuery.Sorts];

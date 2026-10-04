@@ -105,8 +105,8 @@ public sealed class RoleMatrixMigrationTests(PostgresFixture fixture)
             "SELECT count(*) FROM pg_constraint WHERE conname = 'users_deleted_disabled_check'")).Should().Be(1);
     }
 
-    /// <summary>Granted to all four roles by migrations 0006-0008.</summary>
-    private static readonly string[] CompleteInstallGrants = ["REVIEW_CASE", "UPLOAD_DOCUMENT", "VIEW_DOCUMENTS", "MANAGE_BANK_USERS"];
+    /// <summary>Granted to all four roles by migrations 0006 and 0007 (0008 grants MANAGE_BANK_USERS to Admin only).</summary>
+    private static readonly string[] CompleteInstallGrants = ["REVIEW_CASE", "UPLOAD_DOCUMENT", "VIEW_DOCUMENTS"];
 
     private static async Task AssertApprovedMatrixAsync(NpgsqlConnection connection, string[]? grantedToAllRoles = null)
     {
@@ -128,6 +128,10 @@ public sealed class RoleMatrixMigrationTests(PostgresFixture fixture)
             """)).ToList();
         var expected = Matrix.SelectMany(m => m.Permissions.Select(p => (m.Role, p))).ToList();
         expected.AddRange(Matrix.SelectMany(m => (grantedToAllRoles ?? []).Select(p => (m.Role, p))));
+        if (grantedToAllRoles is not null)
+        {
+            expected.Add(("Admin", "MANAGE_BANK_USERS")); // migration 0008: Admin only (guide v1.8 §3.1)
+        }
 
         pairs.Should().HaveCount(expected.Count).And.OnlyHaveUniqueItems();
         pairs.Should().BeEquivalentTo(expected);

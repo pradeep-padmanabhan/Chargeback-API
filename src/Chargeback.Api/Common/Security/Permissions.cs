@@ -36,7 +36,7 @@ public static class Permissions
     /// <summary>Evidence &amp; Documents (approved 2026-10-03): defined in the baseline; assigned to all four roles by migration 0007.</summary>
     public const string ViewDocuments = "VIEW_DOCUMENTS";
 
-    /// <summary>Admin &amp; Configuration (approved 2026-10-03): defined in the baseline; assigned to all four roles by migration 0008.</summary>
+    /// <summary>Admin &amp; Configuration (approved 2026-10-03): defined in the baseline; assigned to the Admin role only by migration 0008.</summary>
     public const string ManageBankUsers = "MANAGE_BANK_USERS";
 
     // ---- PROPOSED, NOT SEEDED (ADR-0111) -------------------------------------------------

@@ -57,8 +57,8 @@ public sealed class CasesModule : ICarterModule
             .WithDescription(
                 "Body {action, rationale, expectedVersion}. The only way to change case status outside the Human Review decision " +
                 "(APPROVE/REJECT) and filing confirmation (FILE); those appear in validActions but return 422 INVALID_TRANSITION here. " +
-                "Allowed now: NEW/FLAGGED → UNDER_REVIEW (START_REVIEW); REJECTED → CLOSED (CLOSE); FILED → CLOSED (CLOSE, admin only, else 403). " +
-                "FLAG and UNFLAG have no approved transitions yet. CLOSE requires a rationale. " +
+                "Allowed: NEW → FLAGGED (FLAG); FLAGGED → NEW (UNFLAG); NEW/FLAGGED → UNDER_REVIEW (START_REVIEW); REJECTED → CLOSED (CLOSE); " +
+                "FILED → CLOSED (CLOSE, admin only, else 403). FLAG/UNFLAG change only the case status (no re-triage). CLOSE requires a rationale. " +
                 "409 CASE_VERSION_MISMATCH when expectedVersion is stale.")
             .RequireIdempotencyKey()
             .ProducesProblem(StatusCodes.Status409Conflict)

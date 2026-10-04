@@ -20,8 +20,9 @@ namespace Chargeback.Api.Features.Admin;
 [RestrictToUserTypes(UserType.Processor, UserType.Admin)]
 public sealed record ListBanksQuery(string? Status, PageRequest Page) : IQuery<PagedResult<BankDto>>, IScopeFilteredRequest, IPagedRequest
 {
-    public static readonly SortMap Sorts = new(
-        "b.id", ("createdAt", "b.created_at"), ("updatedAt", "b.updated_at"), ("bankCode", "b.bank_code"), ("bankName", "b.bank_name"), ("status", "b.status"));
+    public static readonly SortMap Sorts = new SortMap(
+        "b.id", ("createdAt", "b.created_at"), ("updatedAt", "b.updated_at"), ("bankCode", "b.bank_code"), ("bankName", "b.bank_name"), ("status", "b.status"))
+        .WithDefaultSort("bankName", SortMap.Ascending); // documented exception to createdAt desc (guide §3.4)
 
     public SortMap Sort => Sorts;
 }

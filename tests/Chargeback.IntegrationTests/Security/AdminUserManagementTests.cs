@@ -209,14 +209,15 @@ public sealed class AdminUserManagementTests(PostgresFixture fixture)
         var roles = await GetOk<List<RoleDto>>(bankUser.Sub, "/api/v1/admin/roles");
 
         string[] common = [Permissions.ViewCases, Permissions.UpdateCaseStatus, Permissions.ViewTriage, Permissions.ViewBankUsers,
-            Permissions.ReviewCase, Permissions.UploadDocument, Permissions.ViewDocuments, Permissions.ManageBankUsers];
+            Permissions.ReviewCase, Permissions.UploadDocument, Permissions.ViewDocuments];
         string[] senior = [.. common, Permissions.AssignCase, Permissions.RetriageCase];
+        string[] admin = [.. senior, Permissions.ManageBankUsers]; // MANAGE_BANK_USERS is Admin only
         var expected = new Dictionary<string, (UserType Type, string[] Permissions)>
         {
             ["Analyst"] = (UserType.Processor, common),
             ["Senior Analyst"] = (UserType.Processor, senior),
             ["Compliance Officer"] = (UserType.Processor, common),
-            ["Admin"] = (UserType.Admin, senior),
+            ["Admin"] = (UserType.Admin, admin),
             ["Bank User"] = (UserType.Bank, []),
         };
         foreach (var (name, (type, permissions)) in expected)

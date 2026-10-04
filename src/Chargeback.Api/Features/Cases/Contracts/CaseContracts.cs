@@ -67,16 +67,18 @@ public enum TransitionActor
 public sealed record CaseStatusTransition(string From, string Action, string To, TransitionActor Actor, string Source);
 
 /// <summary>
-/// Allowed case status transitions (common guide v1.4 §3.2, approved), enforced in the application layer (the
-/// database only constrains the value set). FLAG and UNFLAG are recognised action names but have no approved
-/// transitions yet (ADR-0110 open question), so they are never valid.
+/// Allowed case status transitions (common guide v1.8 §3.2, approved), enforced in the application layer (the
+/// database only constrains the value set). FLAG / UNFLAG move only the case status: the dispute's status and gate
+/// results are unchanged and no triage runs.
 /// Initial status on creation: NEW (all ten gates passed) or FLAGGED (otherwise).
 /// </summary>
 public static class CaseStatusTransitions
 {
     public static readonly IReadOnlyList<CaseStatusTransition> All =
     [
+        new(CaseStatuses.New, CaseActions.Flag, CaseStatuses.Flagged, TransitionActor.Analyst, "Analyst flags a case for attention (guide v1.8 §3.2)"),
         new(CaseStatuses.New, CaseActions.StartReview, CaseStatuses.UnderReview, TransitionActor.Analyst, "Act 5: analyst takes the case into review"),
+        new(CaseStatuses.Flagged, CaseActions.Unflag, CaseStatuses.New, TransitionActor.Analyst, "Analyst clears the flag (guide v1.8 §3.2)"),
         new(CaseStatuses.Flagged, CaseActions.StartReview, CaseStatuses.UnderReview, TransitionActor.Analyst, "Act 2/5: flagged case picked up from the analyst queue"),
         new(CaseStatuses.UnderReview, CaseActions.Approve, CaseStatuses.Approved, TransitionActor.ReviewDecision, "Act 5: analyst approves (Phase 9)"),
         new(CaseStatuses.UnderReview, CaseActions.Reject, CaseStatuses.Rejected, TransitionActor.ReviewDecision, "Act 5: analyst rejects (Phase 9)"),

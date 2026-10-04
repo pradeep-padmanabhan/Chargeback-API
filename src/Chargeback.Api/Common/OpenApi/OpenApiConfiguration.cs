@@ -56,7 +56,8 @@ public static class OpenApiConfiguration
                 });
 
                 // Approved pagination contract: 1-based page; pageSize 1-100, default 20; sortBy/sortDirection, default createdAt desc.
-                var sortFields = context.Description.ActionDescriptor.EndpointMetadata.OfType<SortFieldsMetadata>().FirstOrDefault()?.Fields;
+                var sortMetadata = context.Description.ActionDescriptor.EndpointMetadata.OfType<SortFieldsMetadata>().FirstOrDefault();
+                var sortFields = sortMetadata?.Fields;
                 foreach (var parameter in operation.Parameters.Where(p => p.In == ParameterLocation.Query))
                 {
                     switch (parameter.Name)
@@ -77,12 +78,12 @@ public static class OpenApiConfiguration
                             };
                             break;
                         case "sortBy" when sortFields is not null:
-                            parameter.Description = $"Field to sort by (default {SortMap.DefaultField}). Any other value returns 400 INVALID_SORT_FIELD.";
+                            parameter.Description = $"Field to sort by (default {sortMetadata!.DefaultField} {sortMetadata.DefaultDirection}). Any other value returns 400 INVALID_SORT_FIELD.";
                             parameter.Schema = new OpenApiSchema
                             {
                                 Type = "string",
                                 Enum = [.. sortFields.Select(f => (IOpenApiAny)new OpenApiString(f))],
-                                Default = new OpenApiString(SortMap.DefaultField),
+                                Default = new OpenApiString(sortMetadata.DefaultField),
                             };
                             break;
                         case "sortDirection":

@@ -132,7 +132,7 @@ public sealed partial class CaseManagementTests(CaseFixture fixture)
         detail.DerivedReasonCode!.Id.Should().Be(rule.ReasonCodeId);
         detail.FilingDeadlineDate.Should().Be(new DateOnly(2026, 10, 1)); // synthetic: 2026-09-01 + 30 calendar days
         detail.DaysRemaining.Should().Be(new DateOnly(2026, 10, 1).DayNumber - DateOnly.FromDateTime(DateTime.UtcNow).DayNumber);
-        detail.ValidActions.Should().Equal(CaseActions.StartReview);
+        detail.ValidActions.Should().Equal(CaseActions.Flag, CaseActions.StartReview);
 
         // Production host: calendar not approved → days remaining is not computed.
         using var prod = fixture.Default.CreateClientFor(world.AnalystSub);
@@ -230,8 +230,7 @@ public sealed partial class CaseManagementTests(CaseFixture fixture)
     [InlineData("REJECT")]
     [InlineData("FILE")]      // only via human filing confirmation (Phase 10)
     [InlineData("CLOSE")]     // FLAGGED cannot be closed
-    [InlineData("FLAG")]      // no approved transitions yet (ADR-0110)
-    [InlineData("UNFLAG")]
+    [InlineData("FLAG")]      // FLAG applies to NEW cases only
     public async Task Actions_not_available_here_are_refused_with_422_and_nothing_is_recorded(string action)
     {
         var (world, caseId) = await FlaggedCase();
@@ -243,6 +242,30 @@ public sealed partial class CaseManagementTests(CaseFixture fixture)
         (await response.Content.ReadAsStringAsync()).Should().Contain("INVALID_TRANSITION");
         (await Count("SELECT count(*) FROM chargeback_diagram.domain_events WHERE case_id = @id AND event_type = 'case.status.changed'", caseId)).Should().Be(0);
         (await CaseFor(caseId, byCaseId: true)).Status.Should().Be(CaseStatuses.Flagged);
+    }
+
+    [Fact]
+    public async Task Analyst_unflags_and_flags_a_case_without_touching_the_dispute()
+    {
+        var (world, caseId) = await FlaggedCase();
+
+        var unflagged = await Transition(world.AnalystSub, caseId, TransitionBody("UNFLAG", await VersionOf(world.AnalystSub, caseId), "facts checked"));
+        unflagged.StatusCode.Should().Be(HttpStatusCode.OK, await unflagged.Content.ReadAsStringAsync());
+        var asNew = (await unflagged.Content.ReadFromJsonAsync<CaseDetailDto>(CurrentUserTests.Json))!;
+        asNew.Status.Should().Be(CaseStatuses.New);
+        asNew.ValidActions.Should().Equal(CaseActions.Flag, CaseActions.StartReview);
+
+        var flagged = await Transition(world.AnalystSub, caseId, TransitionBody("FLAG", asNew.Version));
+        flagged.StatusCode.Should().Be(HttpStatusCode.OK, await flagged.Content.ReadAsStringAsync());
+        (await flagged.Content.ReadFromJsonAsync<CaseDetailDto>(CurrentUserTests.Json))!.ValidActions.Should().Equal(CaseActions.Unflag, CaseActions.StartReview);
+
+        var changes = (await Get<List<CaseTimelineEntryDto>>(world.AnalystSub, $"/api/v1/cases/{caseId}/timeline"))
+            .Where(e => e.EventType == "case.status.changed").Select(e => e.Data!.Value.GetProperty("action").GetString()).ToList();
+        changes.Should().Equal("UNFLAG", "FLAG");
+        (await fixture.Data.QueryScalarAsync<string>(
+            "SELECT d.status FROM chargeback_diagram.disputes d JOIN chargeback_diagram.cases c ON c.dispute_id = d.id WHERE c.id = @caseId", new { caseId }))
+            .Should().Be("FLAGGED", "FLAG/UNFLAG change only the case status");
+        (await Count("SELECT count(*) FROM chargeback_diagram.triage_results WHERE case_id = @id", caseId)).Should().Be(0, "UNFLAG does not trigger triage");
     }
 
     [Fact]

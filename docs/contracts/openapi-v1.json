@@ -2593,11 +2593,11 @@
             }
           },
           {
-            "description": "Field to sort by (default createdAt). Any other value returns 400 INVALID_SORT_FIELD.",
+            "description": "Field to sort by (default bankName asc). Any other value returns 400 INVALID_SORT_FIELD.",
             "in": "query",
             "name": "sortBy",
             "schema": {
-              "default": "createdAt",
+              "default": "bankName",
               "enum": [
                 "createdAt",
                 "updatedAt",
@@ -2898,7 +2898,7 @@
             }
           },
           {
-            "description": "Field to sort by (default createdAt). Any other value returns 400 INVALID_SORT_FIELD.",
+            "description": "Field to sort by (default createdAt desc). Any other value returns 400 INVALID_SORT_FIELD.",
             "in": "query",
             "name": "sortBy",
             "schema": {
@@ -4070,7 +4070,7 @@
             }
           },
           {
-            "description": "Field to sort by (default createdAt). Any other value returns 400 INVALID_SORT_FIELD.",
+            "description": "Field to sort by (default createdAt desc). Any other value returns 400 INVALID_SORT_FIELD.",
             "in": "query",
             "name": "sortBy",
             "schema": {
@@ -5601,7 +5601,7 @@
     },
     "/api/v1/cases/{caseId}/transitions": {
       "post": {
-        "description": "Body {action, rationale, expectedVersion}. The only way to change case status outside the Human Review decision (APPROVE/REJECT) and filing confirmation (FILE); those appear in validActions but return 422 INVALID_TRANSITION here. Allowed now: NEW/FLAGGED \u2192 UNDER_REVIEW (START_REVIEW); REJECTED \u2192 CLOSED (CLOSE); FILED \u2192 CLOSED (CLOSE, admin only, else 403). FLAG and UNFLAG have no approved transitions yet. CLOSE requires a rationale. 409 CASE_VERSION_MISMATCH when expectedVersion is stale.",
+        "description": "Body {action, rationale, expectedVersion}. The only way to change case status outside the Human Review decision (APPROVE/REJECT) and filing confirmation (FILE); those appear in validActions but return 422 INVALID_TRANSITION here. Allowed: NEW \u2192 FLAGGED (FLAG); FLAGGED \u2192 NEW (UNFLAG); NEW/FLAGGED \u2192 UNDER_REVIEW (START_REVIEW); REJECTED \u2192 CLOSED (CLOSE); FILED \u2192 CLOSED (CLOSE, admin only, else 403). FLAG/UNFLAG change only the case status (no re-triage). CLOSE requires a rationale. 409 CASE_VERSION_MISMATCH when expectedVersion is stale.",
         "operationId": "transitionCase",
         "parameters": [
           {
@@ -6711,7 +6711,7 @@
             }
           },
           {
-            "description": "Field to sort by (default createdAt). Any other value returns 400 INVALID_SORT_FIELD.",
+            "description": "Field to sort by (default createdAt desc). Any other value returns 400 INVALID_SORT_FIELD.",
             "in": "query",
             "name": "sortBy",
             "schema": {
@@ -7179,7 +7179,7 @@
             }
           },
           {
-            "description": "Field to sort by (default createdAt). Any other value returns 400 INVALID_SORT_FIELD.",
+            "description": "Field to sort by (default createdAt desc). Any other value returns 400 INVALID_SORT_FIELD.",
             "in": "query",
             "name": "sortBy",
             "schema": {

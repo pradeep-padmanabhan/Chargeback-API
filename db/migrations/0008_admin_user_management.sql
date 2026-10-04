@@ -5,7 +5,7 @@
 BEGIN;
 SET LOCAL search_path TO chargeback_diagram, public;
 
--- 1. MANAGE_BANK_USERS (fresh installs already have the definition from the baseline), for the four approved roles.
+-- 1. MANAGE_BANK_USERS (fresh installs already have the definition from the baseline): Admin role only (guide §3.1).
 INSERT INTO permissions(name, resource, action, description)
 VALUES ('MANAGE_BANK_USERS', 'USER', 'MANAGE', 'Invite, update and remove users of permitted banks')
 ON CONFLICT (name) DO NOTHING;
@@ -14,7 +14,7 @@ INSERT INTO role_permissions(role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 JOIN permissions p ON p.name = 'MANAGE_BANK_USERS'
-WHERE r.name IN ('Analyst', 'Senior Analyst', 'Compliance Officer', 'Admin')
+WHERE r.name = 'Admin'
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- 2. The role for bank users. A user's role type must match its user type, and BANK users hold no permissions
@@ -41,5 +41,5 @@ CREATE INDEX IF NOT EXISTS ix_users_bank_live ON users (bank_id, created_at DESC
 COMMIT;
 -- VALIDATION (read-only):
 -- SELECT r.name FROM chargeback_diagram.role_permissions rp JOIN chargeback_diagram.roles r ON r.id = rp.role_id
---   JOIN chargeback_diagram.permissions p ON p.id = rp.permission_id WHERE p.name = 'MANAGE_BANK_USERS' ORDER BY 1;  -- expect 4
+--   JOIN chargeback_diagram.permissions p ON p.id = rp.permission_id WHERE p.name = 'MANAGE_BANK_USERS' ORDER BY 1;  -- expect Admin only
 -- SELECT name, role_type FROM chargeback_diagram.roles WHERE name = 'Bank User';

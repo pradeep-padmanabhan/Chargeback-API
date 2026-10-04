@@ -86,6 +86,8 @@ public sealed class CaseStatusTransitionTests
     }
 
     [Theory]
+    [InlineData("NEW", "FLAG", "FLAGGED", TransitionActor.Analyst)]
+    [InlineData("FLAGGED", "UNFLAG", "NEW", TransitionActor.Analyst)]
     [InlineData("NEW", "START_REVIEW", "UNDER_REVIEW", TransitionActor.Analyst)]
     [InlineData("FLAGGED", "START_REVIEW", "UNDER_REVIEW", TransitionActor.Analyst)]
     [InlineData("REJECTED", "CLOSE", "CLOSED", TransitionActor.Analyst)]
@@ -105,8 +107,9 @@ public sealed class CaseStatusTransitionTests
     [InlineData("NEW", "APPROVE")]
     [InlineData("CLOSED", "START_REVIEW")]
     [InlineData("UNDER_REVIEW", "CLOSE")]
-    [InlineData("NEW", "FLAG")]
-    [InlineData("FLAGGED", "UNFLAG")]
+    [InlineData("FLAGGED", "FLAG")]
+    [InlineData("NEW", "UNFLAG")]
+    [InlineData("UNDER_REVIEW", "FLAG")]
     public void Unlisted_transitions_do_not_exist(string from, string action)
     {
         CaseStatusTransitions.Find(from, action).Should().BeNull();
@@ -121,17 +124,17 @@ public sealed class CaseStatusTransitionTests
     }
 
     [Theory]
-    [InlineData("NEW", "START_REVIEW")]
-    [InlineData("FLAGGED", "START_REVIEW")]
+    [InlineData("NEW", "FLAG,START_REVIEW")]
+    [InlineData("FLAGGED", "UNFLAG,START_REVIEW")]
     [InlineData("UNDER_REVIEW", "")]
     [InlineData("REJECTED", "CLOSE")]
     [InlineData("FILED", "")]
     [InlineData("CLOSED", "")]
-    public void Analyst_valid_actions(string status, string expected)
+    public void Analyst_valid_actions_match_guide_v1_8(string status, string expected)
     {
         var analyst = User(UserType.Processor, Permissions.ViewCases, Permissions.UpdateCaseStatus);
 
-        CaseStatusTransitions.ValidActions(status, analyst).Should().Equal(expected.Length == 0 ? [] : [expected]);
+        CaseStatusTransitions.ValidActions(status, analyst).Should().Equal(expected.Length == 0 ? [] : expected.Split(','));
     }
 
     [Fact]

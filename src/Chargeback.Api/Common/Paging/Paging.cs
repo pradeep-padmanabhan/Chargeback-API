@@ -56,8 +56,9 @@ public static class PagingValidation
 
 /// <summary>
 /// The fields a list may be sorted by, mapped to trusted SQL columns. Client input only ever selects a key; it is
-/// never interpolated into SQL. Default: <c>createdAt</c> descending. Every sort ends with a unique tie-breaker so
-/// paging is stable.
+/// never interpolated into SQL. Default: <c>createdAt</c> descending, unless the list declares another default with
+/// <see cref="WithDefaultSort"/> (e.g. <c>/admin/banks</c>: <c>bankName asc</c>). A request that names <c>sortBy</c> but no
+/// direction is descending. Every sort ends with a unique tie-breaker so paging is stable.
 /// </summary>
 public sealed class SortMap
 {
@@ -80,6 +81,24 @@ public sealed class SortMap
         }
 
         Fields = [.. _columns.Keys];
+    }
+
+    /// <summary>Applied when the request sends neither <c>sortBy</c> nor <c>sortDirection</c>.</summary>
+    public string DefaultSortField { get; private set; } = DefaultField;
+
+    public string DefaultSortDirection { get; private set; } = Descending;
+
+    /// <summary>Declares a list-specific default sort (a documented exception to the contract default).</summary>
+    public SortMap WithDefaultSort(string field, string direction)
+    {
+        if (!_columns.ContainsKey(field) || !IsDirection(direction))
+        {
+            throw new ArgumentException($"Unsupported default sort '{field} {direction}'.", nameof(field));
+        }
+
+        DefaultSortField = field;
+        DefaultSortDirection = direction.ToLowerInvariant();
+        return this;
     }
 
     /// <summary>Supported <c>sortBy</c> values (camelCase, case-sensitive), in declaration order.</summary>
@@ -114,8 +133,10 @@ public sealed class SortMap
             throw new InvalidOperationException($"Unvalidated sort reached the handler: {error.Code}.");
         }
 
-        var column = _columns[page.SortBy ?? DefaultField];
-        var direction = string.Equals(page.SortDirection, Ascending, StringComparison.OrdinalIgnoreCase) ? "ASC" : "DESC";
+        var useDefault = page.SortBy is null && page.SortDirection is null;
+        var column = _columns[page.SortBy ?? DefaultSortField];
+        var requested = useDefault ? DefaultSortDirection : page.SortDirection;
+        var direction = string.Equals(requested, Ascending, StringComparison.OrdinalIgnoreCase) ? "ASC" : "DESC";
         return $"ORDER BY {column} {direction} NULLS LAST, {_tieBreaker} {direction}";
     }
 
@@ -124,7 +145,7 @@ public sealed class SortMap
 }
 
 /// <summary>Endpoint metadata: the list's sortable fields, published as the <c>sortBy</c> enum in OpenAPI.</summary>
-public sealed record SortFieldsMetadata(IReadOnlyList<string> Fields);
+public sealed record SortFieldsMetadata(IReadOnlyList<string> Fields, string DefaultField, string DefaultDirection);
 
 public static class SortingEndpointExtensions
 {
@@ -132,6 +153,6 @@ public static class SortingEndpointExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(sort);
-        return builder.WithMetadata(new SortFieldsMetadata(sort.Fields));
+        return builder.WithMetadata(new SortFieldsMetadata(sort.Fields, sort.DefaultSortField, sort.DefaultSortDirection));
     }
 }
