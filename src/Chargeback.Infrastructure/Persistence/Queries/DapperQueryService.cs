@@ -30,7 +30,7 @@ public interface IDapperQueryService
         string countSql, string pageSql, DynamicParameters parameters, PageRequest page, CancellationToken cancellationToken);
 }
 
-internal sealed class DapperQueryService(NpgsqlDataSource dataSource, ChargebackDbContext db) : IDapperQueryService
+internal sealed class DapperQueryService(NpgsqlDataSource dataSource, ChargebackDbContext db, IDatabaseScope scope) : IDapperQueryService
 {
     private const int CommandTimeoutSeconds = 30;
 
@@ -77,6 +77,9 @@ internal sealed class DapperQueryService(NpgsqlDataSource dataSource, Chargeback
         }
 
         await using var connection = await dataSource.OpenConnectionAsync();
+
+        // Row-level security (migration 0010): every connection carries the request's scope.
+        await DatabaseScopeSql.ApplyAsync(connection, null, scope.Mode, scope.BankIds, CancellationToken.None);
         return await work(connection, null);
     }
 }

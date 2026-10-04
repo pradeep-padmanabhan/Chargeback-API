@@ -9,8 +9,9 @@
 | 0005 | [`0005_role_permission_matrix.sql`](0005_role_permission_matrix.sql) | Guide v1.4 §3.1: `VIEW_TRIAGE` and `RETRIAGE_CASE` definitions; roles Analyst, Senior Analyst, Compliance Officer and Admin; the approved role → permission matrix (20 rows). No bank scope is granted | Approved; not executed |
 | 0006 | [`0006_human_review.sql`](0006_human_review.sql) | `REVIEW_CASE` for all four roles; append-only `case_review_decisions` table (ADR-0101), with a trigger that refuses UPDATE and DELETE | Approved; not executed |
 | 0007 | [`0007_evidence_documents.sql`](0007_evidence_documents.sql) | `UPLOAD_DOCUMENT` and `VIEW_DOCUMENTS` for all four roles. `documents` gains `upload_status`, `upload_confirmed_at`, `deleted_at` and `deleted_by`, plus a trigger: upload-stage fields are immutable, upload status only moves forward, rows are never deleted. New append-only `document_classifications` table | Approved; not executed |
-| 0008 | [`0008_admin_user_management.sql`](0008_admin_user_management.sql) | `MANAGE_BANK_USERS` for all four roles. Permissionless BANK-type `Bank User` role. `users.invited_at`, `deleted_at`, `deleted_by`, plus a CHECK that a deleted user is DISABLED | Approved; not executed |
+| 0008 | [`0008_admin_user_management.sql`](0008_admin_user_management.sql) | `MANAGE_BANK_USERS` (Admin only). Permissionless BANK-type `Bank User` role. `users.invited_at`, `deleted_at`, `deleted_by`, plus a CHECK that a deleted user is DISABLED. `MANAGE_BANK_USERS` is granted to **Admin only** | Approved; not executed |
 | 0009 | [`0009_portal_messages.sql`](0009_portal_messages.sql) | The baseline `portal_messages` thread: 1–2,000 character CHECK, case index, append-only trigger. RLS deferred to ADR-0006 | Approved; not executed |
+| 0010 | [`0010_row_level_security.sql`](0010_row_level_security.sql) | ADR-0006: RLS enabled and forced on 12 bank-owned tables, one policy each over `app.scope` and `app.bank_ids`; `chargeback_app` and `chargeback_migrations` group roles, with grants | Approved; not executed |
 
 Migration 0003 adds:
 - the `ASSIGN_CASE` permission, not assigned to any role;
@@ -27,3 +28,8 @@ Migration 0003 adds:
 - The application never runs migrations or issues DDL (ADR-0004).
 - Integration tests build every ephemeral database from 0001 plus all migrations, and prove each migration is idempotent (`MigrationTests`).
 - **Open decision:** migration tooling and tracking (Flyway, DbUp, sqitch or other). Until then, record which scripts have been applied to each environment manually.
+
+## Connecting under row-level security (0010)
+- **The API's login** must be a member of `chargeback_app`, and must not be a superuser or have BYPASSRLS. Otherwise the policies are silently skipped.
+- **Migrations** run as `chargeback_migrations` (BYPASSRLS), or as the schema owner.
+- **Logins and passwords** are created at deploy time (`KNOWN_LIMITATION_RLS_PRODUCTION_GRANTS_`).

@@ -36,11 +36,16 @@ public static class DependencyInjection
 
         // Persistence (no migrations — ADR-0004).
         services.AddSingleton(_ => new NpgsqlDataSourceBuilder(connectionString).Build());
+        services.AddScoped<IDatabaseScope, DatabaseScope>();
+        services.AddScoped<DatabaseScopeConnectionInterceptor>();
         services.AddScoped<OutboxInterceptor>();
         services.AddScoped<AuditingInterceptor>();
         services.AddDbContext<ChargebackDbContext>((sp, options) => options
             .UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>())
-            .AddInterceptors(sp.GetRequiredService<OutboxInterceptor>(), sp.GetRequiredService<AuditingInterceptor>()));
+            .AddInterceptors(
+                sp.GetRequiredService<DatabaseScopeConnectionInterceptor>(),
+                sp.GetRequiredService<OutboxInterceptor>(),
+                sp.GetRequiredService<AuditingInterceptor>()));
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<IDapperQueryService, DapperQueryService>();
 

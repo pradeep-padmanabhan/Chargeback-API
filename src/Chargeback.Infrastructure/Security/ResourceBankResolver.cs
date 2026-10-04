@@ -1,3 +1,4 @@
+using Chargeback.Infrastructure.Persistence;
 using Chargeback.Infrastructure.Persistence.Queries;
 
 namespace Chargeback.Infrastructure.Security;
@@ -20,7 +21,7 @@ public interface IResourceBankResolver
     Task<Guid?> ResolveBankIdAsync(ScopedResourceKind kind, Guid resourceId, CancellationToken cancellationToken);
 }
 
-internal sealed class ResourceBankResolver(IDapperQueryService db) : IResourceBankResolver
+internal sealed class ResourceBankResolver(IDapperQueryService db, IDatabaseScope scope) : IResourceBankResolver
 {
     private static readonly Dictionary<ScopedResourceKind, string> Queries = new()
     {
@@ -49,6 +50,15 @@ internal sealed class ResourceBankResolver(IDapperQueryService db) : IResourceBa
             """,
     };
 
-    public Task<Guid?> ResolveBankIdAsync(ScopedResourceKind kind, Guid resourceId, CancellationToken cancellationToken) =>
-        db.QuerySingleOrDefaultAsync<Guid?>(Queries[kind], new { Id = resourceId }, cancellationToken);
+    /// <summary>
+    /// Runs before the caller's scope is known, so it reads under system scope (row-level security would otherwise hide
+    /// the row) and returns only the owning bank; authorization then decides.
+    /// </summary>
+    public async Task<Guid?> ResolveBankIdAsync(ScopedResourceKind kind, Guid resourceId, CancellationToken cancellationToken)
+    {
+        await using (await scope.ElevateToSystemAsync(cancellationToken))
+        {
+            return await db.QuerySingleOrDefaultAsync<Guid?>(Queries[kind], new { Id = resourceId }, cancellationToken);
+        }
+    }
 }

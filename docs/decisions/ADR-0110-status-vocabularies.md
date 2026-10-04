@@ -78,3 +78,11 @@ The transition table above is **approved**, with one change: `FILED → CLOSED` 
 
 ## Client Portal (2026-10-04)
 The portal returns the **raw case status** for now. The bank-facing vocabulary, meaning which values banks see and how internal statuses map to them, is still open (guide §8 #37).
+
+## Guide v1.8 (2026-10-04): FLAG and UNFLAG approved and implemented
+- `FLAG`: NEW → FLAGGED.
+- `UNFLAG`: FLAGGED → NEW.
+
+Both go through `POST /cases/{id}/transitions` with `UPDATE_CASE_STATUS`, and the rationale is optional. They change only the case status: the dispute's status and gate results are unchanged, and no triage runs.
+
+`validActions`: NEW → `[FLAG, START_REVIEW]`; FLAGGED → `[UNFLAG, START_REVIEW]`.

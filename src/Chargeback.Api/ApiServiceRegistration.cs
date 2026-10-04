@@ -27,7 +27,7 @@ public static class ApiServiceRegistration
 {
     /// <summary>
     /// MediatR pipeline, outermost first. APPROVED ORDER (diagram + ADR-0106, 2026-09-29):
-    /// Logging → Validation → Authorization → Idempotency → Transaction → handler.
+    /// Logging → Validation → Authorization → RlsSetup → Idempotency → Transaction → handler (RlsSetup: ADR-0006).
     /// Changing it requires an ADR; <c>PipelineOrderTests</c> enforce it.
     /// </summary>
     public static IServiceCollection AddChargebackApplication(this IServiceCollection services)
@@ -38,6 +38,7 @@ public static class ApiServiceRegistration
             cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
             cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
             cfg.AddOpenBehavior(typeof(AuthorizationBehavior<,>));
+            cfg.AddOpenBehavior(typeof(RlsSetupBehavior<,>));
             cfg.AddOpenBehavior(typeof(IdempotencyBehavior<,>));
             cfg.AddOpenBehavior(typeof(TransactionBehavior<,>));
         });

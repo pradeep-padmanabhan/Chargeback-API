@@ -149,7 +149,8 @@ Approved values: `NEW`, `FLAGGED`, `UNDER_REVIEW`, `APPROVED`, `REJECTED`, `FILE
 | `CLOSE` | FILED → CLOSED | `POST /cases/{id}/transitions` (rationale required) | `UPDATE_CASE_STATUS` and user type ADMIN; otherwise 403 `USER_TYPE_NOT_ALLOWED` |
 | `APPROVE` / `REJECT` | UNDER_REVIEW → APPROVED / REJECTED | `POST /cases/{id}/review/decision` | `REVIEW_CASE` |
 | `FILE` | APPROVED → FILED | `POST /filings/{id}/confirmation` | `SUBMIT_MASTERCOM` |
-| `FLAG` / `UNFLAG` | none approved yet (ADR-0110) | `POST /cases/{id}/transitions` | Always 422 `INVALID_TRANSITION` |
+| `FLAG` | NEW → FLAGGED | `POST /cases/{id}/transitions` | `UPDATE_CASE_STATUS`. Case status only; the dispute is unchanged and no re-triage runs |
+| `UNFLAG` | FLAGGED → NEW | `POST /cases/{id}/transitions` | `UPDATE_CASE_STATUS`. Case status only; no re-triage |
 
 `APPROVE`, `REJECT` and `FILE` sent to `/transitions` return 422 `INVALID_TRANSITION`.
 
@@ -229,10 +230,10 @@ These endpoints are for processor and admin users only; a bank-admin role is def
 
 | Endpoint | Permission | Notes |
 |---|---|---|
-| `GET /admin/banks?status&page&pageSize&sortBy&sortDirection` | `VIEW_BANK_USERS` | Banks in scope; optional exact `status` filter; default sort `createdAt desc` |
+| `GET /admin/banks?status&page&pageSize&sortBy&sortDirection` | `VIEW_BANK_USERS` | Banks in scope; optional exact `status` filter; default sort **`bankName asc`** (documented exception; an explicit `sortBy` without a direction is `desc`) |
 | `GET /admin/banks/{bankId}` | `VIEW_BANK_USERS` | `activeUserCount`, `usersByRole` (active users per role), `callerPermissions` |
 | `GET /admin/banks/{bankId}/users` | `VIEW_BANK_USERS` | The bank's users; removed users are excluded |
-| `POST /admin/banks/{bankId}/users` body `{email, fullName, roleId}` | `MANAGE_BANK_USERS` | **201** `{user, inviteToken, inviteDelivery}`. Details below |
+| `POST /admin/banks/{bankId}/users` body `{email, fullName, roleId}` | `MANAGE_BANK_USERS` (Admin only) | **201** `{user, inviteToken, inviteDelivery}`. Details below |
 | `PATCH /admin/banks/{bankId}/users/{userId}` body `{fullName?, roleId?, isActive?}` | `MANAGE_BANK_USERS` | At least one field. Details below |
 | `DELETE /admin/banks/{bankId}/users/{userId}` | `MANAGE_BANK_USERS` | **204** soft delete: the row is kept with `deletedAt` and status DISABLED (`user.deleted`). **409** `CANNOT_DELETE_SELF` |
 | `GET /admin/roles` | any platform user | Every role with its permission names; read-only |
@@ -276,3 +277,6 @@ Portal endpoints are for **bank users only**, and carry no permission code. Acce
 - The application log records ids and sizes only.
 
 **Not available yet:** document upload from the portal, email notifications and real-time push.
+
+## Row-level security (ADR-0006)
+The database enforces bank scope as well (migration 0010). API behaviour does not change: another bank's resource is still **404**.

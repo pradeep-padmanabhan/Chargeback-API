@@ -134,6 +134,7 @@ public sealed class PipelineOrderTests
         services.AddLogging();
         services.AddSingleton(Substitute.For<IUnitOfWork>());
         services.AddSingleton(Substitute.For<IResourceBankResolver>());
+        services.AddSingleton(Substitute.For<Chargeback.Infrastructure.Persistence.IDatabaseScope>());
         services.AddSingleton(Substitute.For<Chargeback.Infrastructure.Persistence.Queries.IDapperQueryService>());
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<Microsoft.Extensions.Configuration.IConfiguration>(new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
@@ -149,6 +150,7 @@ public sealed class PipelineOrderTests
             typeof(LoggingBehavior<,>),
             typeof(ValidationBehavior<,>),
             typeof(AuthorizationBehavior<,>),
+            typeof(RlsSetupBehavior<,>),
             typeof(IdempotencyBehavior<,>),
             typeof(TransactionBehavior<,>));
     }
