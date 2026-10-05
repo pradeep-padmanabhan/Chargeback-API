@@ -1,6 +1,6 @@
 # Chargeback Management Platform — Unified Frontend, Backend & AI Development Guide
 
-**Version:** 1.11 — RLS extended to `domain_events` and `ai_decision_logs` (migration 0011; 14 protected tables). New readiness guard: `/health/ready` fails when the API's database login bypasses RLS (§8 #41). Previous: v1.10 — merged the team's v1.9 additions; decision contract kept as shipped.  
+**Version:** 1.12 — answers the frontend's contract questions Q45–Q53 from `openapi-v1.json` and the code (all resolved, §8 #45–53); Development CORS adds `localhost:5174` (Client Portal). Previous: v1.11 — migration 0011 (14 RLS tables) and the readiness guard.  
 **Source:** Six user-supplied diagrams plus session decisions (Sep–Oct 2026).
 **Scope:** A shared handoff for UI, API, AI and database engineers.
 **Important:** Diagram-aligned MVP baseline. Do not mix with the expanded 110-feature package.
@@ -405,7 +405,7 @@ The API server never streams file bytes.
 | 17 | Live updates mechanism — polling / SSE / WebSocket | **Open** |
 | 18 | Bulk upload template and limits | **Open** |
 | 19 | Admin MVP scope | **Resolved** — bank list, user CRUD, role listing; shipped in migration 0008 |
-| 20 | Hosting / domains per surface; CORS allowed origins | **Open** — Development allows `localhost:5173` and `localhost:3000`; other environments empty until decided |
+| 20 | Hosting / domains per surface; CORS allowed origins | **Partially resolved** — Development allows `localhost:5173`, `localhost:5174` and `localhost:3000`; production origins open |
 | 21 | Which roles hold `CREATE_DISPUTE`; bank user intake path | **Open** — intake unusable outside tests |
 | 22 | ADR-0110 remaining: direct close of NEW/FLAGGED; UNDER_REVIEW revert; Invalid/AutoRefund status effect | **Open** (FLAG/UNFLAG resolved in v1.9) |
 | 23 | Other status vocabularies: disputes.status, mastercom_filings.*, banks.status | **Open** |
@@ -430,6 +430,15 @@ The API server never streams file bytes.
 | 42 | Analyst-only notes: none exist — `portal_messages` is the shared thread (`BANK_USER` / `ANALYST`); private notes would need a separate `case_notes` table. (The RLS gap for `domain_events` / `ai_decision_logs` was closed by migration 0011.) | **Open** — do not build analyst-only notes until decided |
 | 43 | `FILE` in `validActions` requires `SUBMIT_MASTERCOM`, which no role holds, so `FILE` does not appear until the filing phase assigns it | **Resolved — confirmed behaviour; no action needed** |
 | 44 | Bank-facing case status vocabulary for the Client Portal (ADR-0110) | **Open** — the portal shows raw case statuses |
+| 45 | `reasonCodeId` in the Approve body | **Resolved — required.** Approve sends `reasonCodeId` = `case.derivedReasonCode.id`; omit or null for Reject. Missing on Approve, or sent on Reject → `400 VALIDATION_FAILED` |
+| 46 | `REASON_CODE_NOT_DERIVED` / `REASON_CODE_MISMATCH` | **Resolved — both exist (422).** NOT_DERIVED: the case has no derived code, so it can only be rejected. MISMATCH: `reasonCodeId` ≠ the derived code |
+| 47 | Decision `200` response shape | **Resolved — `{decisionId, caseId, decision, reasonCodeId, rationale, reviewedBy, reviewedAt, case}`.** `case` is the full updated case detail (new `status`, `version`, `validActions`) |
+| 48 | `uploadStatus` values | **Resolved — `PENDING_UPLOAD` \| `UPLOADED`** (string). Only `processingStatus` is `Pending \| Processing \| Success \| Failed` |
+| 49 | Stale `expectedVersion` on `/transitions` | **Resolved — `409 CASE_VERSION_MISMATCH`** (same as `/review/decision`). Missing `expectedVersion` → `400 VALIDATION_FAILED` |
+| 50 | `CLOSE` rationale | **Resolved — required for `CLOSE`** (400 if missing); optional for `FLAG`, `UNFLAG`, `START_REVIEW` |
+| 51 | Thread order and identity fields | **Resolved — oldest first** (`createdAt`, then `messageId`). Portal (`/portal/cases/{id}/messages`): `{messageId, senderType, body, createdAt}`, with **no sender id**. Analyst (`/cases/{id}/messages`): adds `caseId` and `senderId` (a uuid). **No names in either** |
+| 52 | Bank list field name | **Resolved — `bankName`** (also `id`, `bankCode`, `country`, `status`, `createdAt`, `updatedAt`). There is no `name` field |
+| 53 | Document failure reason field | **Resolved — `processingFailureReason`** (e.g. `AI_UNAVAILABLE`), set when `processingStatus = Failed`. Uploads have no Failed state. Per-run detail: `classification.failureReason` |
 
 **Triage engine built but blocked:** ADR-0119–0122 must be resolved before real bank configuration and derived reason codes can be produced. Do not invent defaults.
 

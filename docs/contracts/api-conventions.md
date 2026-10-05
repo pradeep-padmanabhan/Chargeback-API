@@ -26,7 +26,7 @@ Every failure is `application/problem+json`: `{ type, title, status, detail, cod
 The UI can hide actions with `PermissionGuard`, but the backend re-checks every call.
 
 ## CORS (browser surfaces)
-- **Allowed origins:** `Cors:AllowedOrigins` per environment. Development allows `http://localhost:5173` (Vite) and `http://localhost:3000`. The base configuration is empty, so other environments allow no cross-origin access until hosting domains are approved (guide §8 #20).
+- **Allowed origins:** `Cors:AllowedOrigins` per environment. Development allows `http://localhost:5173` (Analyst Portal), `http://localhost:5174` (Client Portal) and `http://localhost:3000`. The base configuration is empty, so other environments allow no cross-origin access until hosting domains are approved (guide §8 #20).
 - **Exposed response headers:** `Retry-After`, `Idempotent-Replayed`, `ETag`.
 - **Allowed request headers:** `Authorization`, `Content-Type`, `Idempotency-Key`, `If-Match`, `X-Correlation-Id`.
 - **Credentials:** not allowed (bearer tokens only). Preflight is answered without a token and cached for 10 minutes.
