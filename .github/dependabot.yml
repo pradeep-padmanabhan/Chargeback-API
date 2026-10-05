@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # Licensing pins (ADR-0002): stay on the Apache-2.0 lines.
+      - dependency-name: MediatR
+        versions: [">=13.0.0"]
+      - dependency-name: FluentAssertions
+        versions: [">=8.0.0"]
+      # Diagram specifies FluentValidation 11; Carter 9 depends on 11.x.
+      - dependency-name: FluentValidation*
+        versions: [">=12.0.0"]
+      # Stay on the .NET 9 line.
+      - dependency-name: Microsoft.AspNetCore.*
+        versions: [">=10.0.0"]
+      - dependency-name: Microsoft.EntityFrameworkCore.*
+        versions: [">=10.0.0"]
+      - dependency-name: Npgsql.EntityFrameworkCore.PostgreSQL
+        versions: [">=10.0.0"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

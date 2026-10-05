@@ -1,0 +1,63 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  CONFIGURATION: Release
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore (NuGet audit fails on vulnerable packages)
+        run: dotnet restore
+
+      - name: Format check
+        run: dotnet format --verify-no-changes --no-restore
+
+      - name: Build (warnings as errors)
+        run: dotnet build --no-restore -c $CONFIGURATION
+
+      - name: Vulnerable package scan (direct and transitive)
+        run: |
+          dotnet list package --vulnerable --include-transitive | tee vulnerable.txt
+          if grep -q "has the following vulnerable packages" vulnerable.txt; then exit 1; fi
+
+      - name: Unit tests
+        run: dotnet test tests/Chargeback.UnitTests --no-build -c $CONFIGURATION --logger trx --results-directory TestResults --collect "XPlat Code Coverage"
+
+      - name: Architecture tests
+        run: dotnet test tests/Chargeback.ArchitectureTests --no-build -c $CONFIGURATION --logger trx --results-directory TestResults
+
+      - name: API contract tests (OpenAPI snapshot)
+        run: dotnet test tests/Chargeback.ContractTests --no-build -c $CONFIGURATION --logger trx --results-directory TestResults
+
+      - name: Integration tests (Testcontainers PostgreSQL 16 + baseline SQL)
+        run: dotnet test tests/Chargeback.IntegrationTests --no-build -c $CONFIGURATION --logger trx --results-directory TestResults --collect "XPlat Code Coverage"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
+          retention-days: 14
