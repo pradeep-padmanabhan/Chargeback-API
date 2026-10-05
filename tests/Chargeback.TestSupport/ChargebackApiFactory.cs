@@ -40,6 +40,9 @@ public class ChargebackApiFactory(string connectionString) : WebApplicationFacto
         // Diagnostics: CHARGEBACK_TEST_LOG_LEVEL=Error (etc.) surfaces server logs in test output.
         builder.UseSetting("Serilog:MinimumLevel:Default", Environment.GetEnvironmentVariable("CHARGEBACK_TEST_LOG_LEVEL") ?? "Fatal");
         builder.UseSetting("Idempotency:PurgeEnabled", "false");
+
+        // Test hosts connect as the container superuser (RLS bypassed); RLS tests override this with an enforced login.
+        builder.UseSetting("RowLevelSecurity:RequireEnforcedLogin", "false");
         foreach (var (key, value) in Settings)
         {
             builder.UseSetting(key, value);

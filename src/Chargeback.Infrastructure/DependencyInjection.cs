@@ -90,8 +90,10 @@ public static class DependencyInjection
         services.AddSingleton<IdempotencyKeyPurgeJob>();
         services.AddHostedService(sp => sp.GetRequiredService<IdempotencyKeyPurgeJob>());
 
+        services.AddOptions<RowLevelSecurityOptions>().Bind(configuration.GetSection(RowLevelSecurityOptions.SectionName));
         services.AddHealthChecks()
             .AddCheck<DatabaseHealthCheck>("database", tags: [ReadinessTag])
+            .AddCheck<RowLevelSecurityHealthCheck>("row-level-security", tags: [ReadinessTag])
             .AddCheck<IdempotencyPurgeHealthCheck>("idempotency-purge", HealthStatus.Degraded, tags: [ReadinessTag]);
 
         return services;

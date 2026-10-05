@@ -33,6 +33,7 @@ public sealed class RowLevelSecurityApiTests(CaseFixture fixture) : IAsyncLifeti
         {
             ["Outbox:Transport"] = OutboxTransports.InProcess,
             ["Outbox:DispatcherEnabled"] = "false",
+            ["RowLevelSecurity:RequireEnforcedLogin"] = "true",
         },
     };
 
@@ -99,6 +100,24 @@ public sealed class RowLevelSecurityApiTests(CaseFixture fixture) : IAsyncLifeti
         (await Dapper.SqlMapper.ExecuteScalarAsync<long>(login, visible, new { caseId })).Should().Be(0, "another bank's scope");
         await Dapper.SqlMapper.ExecuteAsync(login, "SELECT set_config('app.bank_ids', @ids, false)", new { ids = "{" + bankA + "}" });
         (await Dapper.SqlMapper.ExecuteScalarAsync<long>(login, visible, new { caseId })).Should().Be(1, "the case's own bank");
+    }
+
+    [Fact]
+    public async Task Readiness_is_healthy_only_when_the_api_login_is_subject_to_rls()
+    {
+        using (var enforced = _host.CreateClientFor(null))
+        {
+            var ready = await enforced.GetAsync("/health/ready");
+            ready.StatusCode.Should().Be(HttpStatusCode.OK, await ready.Content.ReadAsStringAsync());
+        }
+
+        // The same check against the superuser login (RLS silently bypassed) must fail readiness (guide §8 #41).
+        await using var superuser = new ChargebackApiFactory(fixture.ConnectionString)
+        {
+            Settings = new Dictionary<string, string> { ["RowLevelSecurity:RequireEnforcedLogin"] = "true" },
+        };
+        using var client = superuser.CreateClientFor(null);
+        (await client.GetAsync("/health/ready")).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
     }
 
     private async Task<HttpResponseMessage> Send(string sub, HttpMethod method, string url, string? body = null, bool idempotent = false)
