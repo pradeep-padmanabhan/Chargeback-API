@@ -57,6 +57,7 @@ internal sealed class OutboxInterceptor(ICorrelationIdProvider correlation, Time
             {
                 Id = domainEvent.EventId,
                 CaseId = domainEvent.CaseId,
+                BankId = domainEvent.BankId,
                 EventType = domainEvent.EventType,
                 EventData = envelope.ToJson(),
                 CreatedAt = stamp,

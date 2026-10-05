@@ -12,6 +12,7 @@
 | 0008 | [`0008_admin_user_management.sql`](0008_admin_user_management.sql) | `MANAGE_BANK_USERS` (Admin only). Permissionless BANK-type `Bank User` role. `users.invited_at`, `deleted_at`, `deleted_by`, plus a CHECK that a deleted user is DISABLED. `MANAGE_BANK_USERS` is granted to **Admin only** | Approved; not executed |
 | 0009 | [`0009_portal_messages.sql`](0009_portal_messages.sql) | The baseline `portal_messages` thread: 1–2,000 character CHECK, case index, append-only trigger. RLS deferred to ADR-0006 | Approved; not executed |
 | 0010 | [`0010_row_level_security.sql`](0010_row_level_security.sql) | ADR-0006: RLS enabled and forced on 12 bank-owned tables, one policy each over `app.scope` and `app.bank_ids`; `chargeback_app` and `chargeback_migrations` group roles, with grants | Approved; not executed |
+| 0011 | [`0011_rls_events_and_ai_logs.sql`](0011_rls_events_and_ai_logs.sql) | Guide §8 #42: `bank_id` on `domain_events` and `ai_decision_logs`, backfilled from the envelope or case. Both tables now under RLS (14 in total) | Approved; not executed |
 
 Migration 0003 adds:
 - the `ASSIGN_CASE` permission, not assigned to any role;

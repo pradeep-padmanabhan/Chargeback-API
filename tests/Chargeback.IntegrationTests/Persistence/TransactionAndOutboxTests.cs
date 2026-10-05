@@ -89,7 +89,7 @@ public sealed class TransactionAndOutboxTests(PostgresFixture fixture)
         var id = Guid.NewGuid();
 
         await writer.WriteAsync(
-            new AiDecisionLogEntry(id, null, AiAgents.Classification, AiCapabilities.DocumentVerification, "model-x", "doc-verify@1",
+            new AiDecisionLogEntry(id, null, null, AiAgents.Classification, AiCapabilities.DocumentVerification, "model-x", "doc-verify@1",
                 new string('a', 64), """{"content":"x"}""", """{"suggestedType":"Invoice"}""", 12, 100, 20, DateTimeOffset.UtcNow),
             CancellationToken.None);
 

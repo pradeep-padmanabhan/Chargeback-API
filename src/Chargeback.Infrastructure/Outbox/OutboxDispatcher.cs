@@ -1,3 +1,4 @@
+using Chargeback.Infrastructure.Persistence;
 using Dapper;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -70,6 +71,9 @@ public sealed partial class OutboxDispatcher(
     public async Task<int> DispatchBatchAsync(CancellationToken cancellationToken)
     {
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+
+        // The dispatcher serves every bank: system scope under row-level security (migration 0011).
+        await DatabaseScopeSql.ApplyAsync(connection, null, DatabaseScopeMode.System, [], cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
         var pending = (await connection.QueryAsync<PendingEvent>(

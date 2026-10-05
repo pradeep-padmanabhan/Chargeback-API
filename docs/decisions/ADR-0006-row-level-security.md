@@ -1,6 +1,6 @@
 # ADR-0006: PostgreSQL row-level security
 
-Status: **Accepted and implemented (migration 0010, 2026-10-04)** · Date: 2026-09-29, revised 2026-10-04
+Status: **Accepted and implemented (migrations 0010 and 0011, 2026-10-04/05)** · Date: 2026-09-29, revised 2026-10-04
 
 ## Context
 Bank scope was already enforced and tested in the application. Row-level security adds defence in depth: a missed `WHERE` clause cannot leak another bank's rows. It is required before any shared or staging environment.
@@ -63,3 +63,17 @@ The API must connect as a login that is a member of `chargeback_app`. Superusers
 - `SET LOCAL` inside the transaction became per-connection settings, because the order placed RlsSetup before Transaction and queries open no transaction.
 - `CREATE ROLE IF NOT EXISTS` is not PostgreSQL syntax; guarded `DO` blocks are used instead.
 - `users` is excluded, because of the sign-in lookup.
+
+## Update (2026-10-05): migration 0011 and the readiness guard
+- **Two more tables protected (14 in total):** `domain_events` and `ai_decision_logs`.
+  - Each gets a `bank_id` column, backfilled from the event envelope (`event_data.bankId`) or from the AI log's case.
+  - The policy is `rls_is_system() OR bank_id = ANY(rls_bank_ids())`. Rows without a bank are visible to system scope only.
+- **Writers:**
+  - The outbox interceptor stores `bank_id` from the event, inside the request's own scope.
+  - The outbox dispatcher and the AI audit writer use their own connections and set system scope.
+- **Readiness guard (guide §8 #41).** The `row-level-security` readiness check is Unhealthy when:
+  - the API's database login is a superuser or has BYPASSRLS;
+  - the login isn't a member of `chargeback_app`;
+  - fewer than 14 tables have RLS forced.
+
+  The check is controlled by `RowLevelSecurity:RequireEnforcedLogin`: on by default, off in Development and in the superuser-based test hosts.

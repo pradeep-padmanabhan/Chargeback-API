@@ -88,6 +88,9 @@ public sealed class AiDecisionLog : BaseEntity, IHasCreatedAt
 {
     public Guid? CaseId { get; set; }
 
+    /// <summary>Migration 0011: the invocation's bank (row-level security).</summary>
+    public Guid? BankId { get; set; }
+
     public required string AgentName { get; set; }
 
     public required string CapabilityName { get; set; }
@@ -117,6 +120,9 @@ public sealed class AiDecisionLog : BaseEntity, IHasCreatedAt
 public sealed class DomainEventRecord : BaseEntity, IHasCreatedAt
 {
     public Guid? CaseId { get; set; }
+
+    /// <summary>Migration 0011: the event's bank (row-level security). Null only for events with no bank.</summary>
+    public Guid? BankId { get; set; }
 
     public required string EventType { get; set; }
 

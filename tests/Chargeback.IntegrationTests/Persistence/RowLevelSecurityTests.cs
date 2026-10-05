@@ -5,7 +5,7 @@ using Npgsql;
 namespace Chargeback.IntegrationTests.Persistence;
 
 /// <summary>
-/// Migration 0010 (ADR-0006) at the database: a login in chargeback_app sees only the banks in <c>app.bank_ids</c>,
+/// Migrations 0010 and 0011 (ADR-0006) at the database: a login in chargeback_app sees only the banks in <c>app.bank_ids</c>,
 /// nothing when the scope is unset, everything in system scope; chargeback_migrations bypasses RLS. Superusers (the test
 /// fixture's own login) are not subject to RLS, so these tests connect as a dedicated non-superuser login.
 /// </summary>
@@ -16,6 +16,7 @@ public sealed class RowLevelSecurityTests(PostgresFixture fixture)
     [
         "disputes", "cases", "gate_results", "triage_results", "document_slots", "documents", "document_classifications",
         "case_review_decisions", "portal_messages", "zendesk_tickets", "mastercom_filings", "filing_api_log",
+        "domain_events", "ai_decision_logs", // migration 0011
     ];
 
     [Fact]
@@ -74,6 +75,43 @@ public sealed class RowLevelSecurityTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Migration_0011_backfills_bank_ids_and_is_idempotent()
+    {
+        var database = "mig11_" + Guid.NewGuid().ToString("N")[..10];
+        await using (var admin = new NpgsqlConnection(fixture.ConnectionString))
+        {
+            await admin.ExecuteAsync($"CREATE DATABASE {database}");
+        }
+
+        var target = new NpgsqlConnectionStringBuilder(fixture.ConnectionString) { Database = database }.ConnectionString;
+        await BaselineDatabase.ApplyAsync(target);
+        foreach (var migration in Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "Migrations"), "*.sql").Order(StringComparer.Ordinal)
+                     .Where(m => string.CompareOrdinal(Path.GetFileName(m), "0011") < 0))
+        {
+            await BaselineDatabase.ExecuteScriptAsync(target, migration);
+        }
+
+        // Rows written before 0011: the bank is only in the envelope (events) or reachable through the case (AI logs).
+        await using var c = new NpgsqlConnection(target);
+        var bankId = await c.ExecuteScalarAsync<Guid>("INSERT INTO chargeback_diagram.banks(bank_code, bank_name) VALUES ('M11', 'm') RETURNING id");
+        var disputeId = await c.ExecuteScalarAsync<Guid>("INSERT INTO chargeback_diagram.disputes(bank_id, intake_channel) VALUES (@bankId, 'PORTAL') RETURNING id", new { bankId });
+        var caseId = await c.ExecuteScalarAsync<Guid>("INSERT INTO chargeback_diagram.cases(dispute_id, case_reference) VALUES (@disputeId, 'M11') RETURNING id", new { disputeId });
+        await c.ExecuteAsync(
+            "INSERT INTO chargeback_diagram.domain_events(case_id, event_type, event_data) VALUES (@caseId, 'x', jsonb_build_object('bankId', @bank::text))",
+            new { caseId, bank = bankId });
+        await c.ExecuteAsync("INSERT INTO chargeback_diagram.ai_decision_logs(case_id, agent_name, capability_name) VALUES (@caseId, 'a', 'c')", new { caseId });
+
+        var path = BaselineDatabase.MigrationPath("0011_rls_events_and_ai_logs.sql");
+        await BaselineDatabase.ExecuteScriptAsync(target, path);
+        await BaselineDatabase.ExecuteScriptAsync(target, path);
+
+        (await c.ExecuteScalarAsync<Guid>("SELECT bank_id FROM chargeback_diagram.domain_events WHERE case_id = @caseId", new { caseId })).Should().Be(bankId);
+        (await c.ExecuteScalarAsync<Guid>("SELECT bank_id FROM chargeback_diagram.ai_decision_logs WHERE case_id = @caseId", new { caseId })).Should().Be(bankId);
+        (await c.ExecuteScalarAsync<long>(
+            "SELECT count(*) FROM pg_class WHERE relnamespace = 'chargeback_diagram'::regnamespace AND relforcerowsecurity")).Should().Be(14);
+    }
+
+    [Fact]
     public async Task Migrations_role_bypasses_rls()
     {
         var b = await SeedBankAsync();
@@ -86,7 +124,7 @@ public sealed class RowLevelSecurityTests(PostgresFixture fixture)
 
     // ---- helpers ------------------------------------------------------------------------------------------
 
-    private sealed record SeededBank(Guid BankId, Guid DisputeId, Guid CaseId, Guid DocumentId, Guid FilingId);
+    private sealed record SeededBank(Guid BankId, Guid DisputeId, Guid CaseId, Guid DocumentId, Guid FilingId, Guid EventId, Guid AiLogId);
 
     /// <summary>One row per protected table for a new bank (inserted by the superuser fixture login).</summary>
     private async Task<SeededBank> SeedBankAsync()
@@ -115,7 +153,12 @@ public sealed class RowLevelSecurityTests(PostgresFixture fixture)
         var filingId = await c.ExecuteScalarAsync<Guid>(
             "INSERT INTO chargeback_diagram.mastercom_filings(case_id, idempotency_key) VALUES (@caseId, @key) RETURNING id", new { caseId, key = "RLS-" + Guid.NewGuid() });
         await c.ExecuteAsync("INSERT INTO chargeback_diagram.filing_api_log(filing_id, direction) VALUES (@filingId, 'OUTBOUND')", new { filingId });
-        return new SeededBank(bankId, disputeId, caseId, documentId, filingId);
+        var eventId = await c.ExecuteScalarAsync<Guid>(
+            "INSERT INTO chargeback_diagram.domain_events(case_id, bank_id, event_type) VALUES (@caseId, @bankId, 'rls.test') RETURNING id", new { caseId, bankId });
+        var aiLogId = await c.ExecuteScalarAsync<Guid>(
+            "INSERT INTO chargeback_diagram.ai_decision_logs(case_id, bank_id, agent_name, capability_name) VALUES (@caseId, @bankId, 'a', 'c') RETURNING id",
+            new { caseId, bankId });
+        return new SeededBank(bankId, disputeId, caseId, documentId, filingId, eventId, aiLogId);
     }
 
     /// <summary>Rows of the seeded bank visible on <paramref name="connection"/>, per protected table.</summary>
@@ -135,6 +178,8 @@ public sealed class RowLevelSecurityTests(PostgresFixture fixture)
             ["zendesk_tickets"] = "SELECT count(*) FROM chargeback_diagram.zendesk_tickets WHERE case_id = @CaseId",
             ["mastercom_filings"] = "SELECT count(*) FROM chargeback_diagram.mastercom_filings WHERE id = @FilingId",
             ["filing_api_log"] = "SELECT count(*) FROM chargeback_diagram.filing_api_log WHERE filing_id = @FilingId",
+            ["domain_events"] = "SELECT count(*) FROM chargeback_diagram.domain_events WHERE id = @EventId",
+            ["ai_decision_logs"] = "SELECT count(*) FROM chargeback_diagram.ai_decision_logs WHERE id = @AiLogId",
         };
         queries.Keys.Should().BeEquivalentTo(Protected);
 

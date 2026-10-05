@@ -12,8 +12,8 @@ public sealed class RowLevelSecurityOptions
 {
     public const string SectionName = "RowLevelSecurity";
 
-    /// <summary>Tables protected by migration 0010 (ADR-0006). Raised when a migration protects more.</summary>
-    public const int ProtectedTableCount = 12;
+    /// <summary>Tables protected by migrations 0010 (12) and 0011 (domain_events, ai_decision_logs). Raise it when a migration protects more.</summary>
+    public const int ProtectedTableCount = 14;
 
     public bool RequireEnforcedLogin { get; set; } = true;
 }
@@ -71,7 +71,7 @@ internal sealed class RowLevelSecurityHealthCheck(NpgsqlDataSource dataSource, I
             var protectedTables = reader.GetInt64(3);
             if (protectedTables < RowLevelSecurityOptions.ProtectedTableCount)
             {
-                problems.Add($"row-level security is forced on {protectedTables} of {RowLevelSecurityOptions.ProtectedTableCount} expected tables (migration 0010 missing?)");
+                problems.Add($"row-level security is forced on {protectedTables} of {RowLevelSecurityOptions.ProtectedTableCount} expected tables (migrations 0010/0011 missing?)");
             }
 
             return problems.Count == 0

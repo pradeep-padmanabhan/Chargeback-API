@@ -65,6 +65,9 @@ public sealed class RowLevelSecurityApiTests(CaseFixture fixture) : IAsyncLifeti
         (await Send(otherAnalyst.Sub, HttpMethod.Get, $"/api/v1/cases/{caseId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await GetOk<PagedResult<CaseSummaryDto>>(otherAnalyst.Sub, "/api/v1/cases?pageSize=100")).Items.Should().NotContain(c => c.Id == caseId);
 
+        // The case timeline is domain_events, protected since migration 0011.
+        (await GetOk<List<CaseTimelineEntryDto>>(analyst.Sub, $"/api/v1/cases/{caseId}/timeline")).Should().Contain(e => e.EventType == "case.created");
+
         // Transactional command + its consumer (system scope).
         (await Send(analyst.Sub, HttpMethod.Post, $"/api/v1/cases/{caseId}/transitions",
             JsonSerializer.Serialize(new { action = "START_REVIEW", expectedVersion = detail.Version }), idempotent: true)).StatusCode.Should().Be(HttpStatusCode.OK);

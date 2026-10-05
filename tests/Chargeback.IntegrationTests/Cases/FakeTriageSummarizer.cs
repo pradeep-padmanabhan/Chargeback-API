@@ -38,12 +38,13 @@ public sealed class FakeTriageSummarizer : ITriageSummarizer
         await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.ExecuteAsync(
             """
-            INSERT INTO chargeback_diagram.ai_decision_logs(case_id, agent_name, capability_name, model_name, prompt_template_id, parsed_output)
-            VALUES (@CaseId, 'AnalysisExplanation', @Capability, @ModelName, @PromptTemplateId, CAST(@Parsed AS jsonb))
+            INSERT INTO chargeback_diagram.ai_decision_logs(case_id, bank_id, agent_name, capability_name, model_name, prompt_template_id, parsed_output)
+            VALUES (@CaseId, @BankId, 'AnalysisExplanation', @Capability, @ModelName, @PromptTemplateId, CAST(@Parsed AS jsonb))
             """,
             new
             {
                 input.CaseId,
+                input.BankId,
                 Capability = AiCapabilities.TriageSummary,
                 ModelName,
                 PromptTemplateId,

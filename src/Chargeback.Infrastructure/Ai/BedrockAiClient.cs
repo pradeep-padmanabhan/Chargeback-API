@@ -82,6 +82,7 @@ internal sealed partial class BedrockAiClient(
         var entry = new AiDecisionLogEntry(
             Guid.CreateVersion7(),
             invocation.CaseId,
+            invocation.BankId,
             invocation.AgentName,
             invocation.CapabilityName,
             response?.ModelId ?? settings.ModelId,

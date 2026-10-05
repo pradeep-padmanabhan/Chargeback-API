@@ -1,12 +1,6 @@
 # Chargeback Management Platform — Unified Frontend, Backend & AI Development Guide
 
-**Version:** 1.10 — merges the team's v1.9 additions with the facts checked against the code:
-- **New sections:** §5.1 RLS design, the shared message thread note, the review decision body, and §8 #41–43 in the team's numbering. The portal status vocabulary moves to #44.
-- **Kept as shipped:** the decision contract: `Approve`/`Reject`, rationale 1–4,000 characters, `409 CASE_VERSION_MISMATCH`, and no reason-code lookup endpoint.
-- **Confirmed:** `FILE` needs `SUBMIT_MASTERCOM`.
-- **Corrected:** migration names (`0008_admin_user_management.sql`, `0010_row_level_security.sql`), the protected-table list (no `case_events`, `users` or `gate_definitions`), the document statuses, and the dev CORS origins.
-
-Previous: v1.9 — RLS shipped (migration 0010).  
+**Version:** 1.11 — RLS extended to `domain_events` and `ai_decision_logs` (migration 0011; 14 protected tables). New readiness guard: `/health/ready` fails when the API's database login bypasses RLS (§8 #41). Previous: v1.10 — merged the team's v1.9 additions; decision contract kept as shipped.  
 **Source:** Six user-supplied diagrams plus session decisions (Sep–Oct 2026).
 **Scope:** A shared handoff for UI, API, AI and database engineers.
 **Important:** Diagram-aligned MVP baseline. Do not mix with the expanded 110-feature package.
@@ -294,15 +288,15 @@ All capabilities return "unavailable" (placeholders). AI summary written once on
 | `0008_admin_user_management.sql` | `MANAGE_BANK_USERS` (Admin only); `Bank User` role (BANK type, no permissions); `users.invited_at`, `deleted_at`, `deleted_by` | ✓ |
 | `0009_portal_messages.sql` | Baseline `portal_messages`: 1–2000 char CHECK, case index, append-only trigger | ✓ |
 | `0010_row_level_security.sql` | RLS enabled + forced on 12 bank-owned tables; one policy each over `app.scope` / `app.bank_ids`; `chargeback_app` and `chargeback_migrations` roles | ✓ |
+| `0011_rls_events_and_ai_logs.sql` | `bank_id` on `domain_events` and `ai_decision_logs` (backfilled); both under RLS (14 tables) | ✓ |
 
 **Complete install** = 0001 then every `db/migrations/NNNN_*.sql` in order. All scripts are idempotent and transactional. **None applied to a shared environment yet.**
 
 **Row-level security (0010, ADR-0006):**
 - **Session settings.** The API sets `app.scope` (`banks` / `system` / empty) and `app.bank_ids` (all the caller's banks) on every connection it opens. Unset settings mean no rows.
-- **Protected tables:** `disputes`, `cases`, `gate_results`, `triage_results`, `document_slots`, `documents`, `document_classifications`, `case_review_decisions`, `portal_messages`, `zendesk_tickets`, `mastercom_filings`, `filing_api_log`.
+- **Protected tables (14):** `disputes`, `cases`, `gate_results`, `triage_results`, `document_slots`, `documents`, `document_classifications`, `case_review_decisions`, `portal_messages`, `zendesk_tickets`, `mastercom_filings`, `filing_api_log`, `domain_events`, `ai_decision_logs`.
 - **Not protected:**
   - users, roles and configuration (the sign-in lookup runs before any bank is known);
-  - `domain_events` and `ai_decision_logs`, which are deferred (§8 #42; see §5.1).
 - **API login.** The API must connect as a non-superuser login in `chargeback_app`. Logins and passwords are created at deploy time (`KNOWN_LIMITATION_RLS_PRODUCTION_GRANTS_`).
 
 **Document upload immutability:**
@@ -333,16 +327,16 @@ Unset settings mean no rows.
 
 Both are NOLOGIN group roles. The logins, and their passwords from Secrets Manager, are created at deploy time (`KNOWN_LIMITATION_RLS_PRODUCTION_GRANTS_`).
 
-**Protected tables (12)**, each with `FORCE ROW LEVEL SECURITY` and one `bank_scope` policy:
+**Protected tables (14)**, each with `FORCE ROW LEVEL SECURITY` and one `bank_scope` policy:
 - `disputes`: directly through `bank_id`;
 - `cases` and `gate_results`: through their dispute;
 - `triage_results`, `document_slots`, `documents`, `case_review_decisions`, `portal_messages`, `zendesk_tickets` and `mastercom_filings`: through their case;
 - `document_classifications`: through its document;
-- `filing_api_log`: through its filing.
+- `filing_api_log`: through its filing;
+- `domain_events` and `ai_decision_logs`: directly through their `bank_id` column (migration 0011). The outbox dispatcher and AI audit writer use system scope.
 
 **Not protected:**
-- `roles`, `permissions`, `role_permissions`, `users` (the sign-in lookup runs before any bank is known), `user_bank_scopes`, `banks`, `scheme_reason_codes`, `scheme_rule_specs`, `idempotency_keys`, `processed_domain_events`;
-- `domain_events` and `ai_decision_logs`: written outside the request scope (§8 #42).
+- `roles`, `permissions`, `role_permissions`, `users` (the sign-in lookup runs before any bank is known), `user_bank_scopes`, `banks`, `scheme_reason_codes`, `scheme_rule_specs`, `idempotency_keys`, `processed_domain_events`.
 
 There are no `case_events` or `gate_definitions` tables.
 
@@ -352,7 +346,7 @@ There are no `case_events` or `gate_definitions` tables.
 
 `rls_bank_ids()` reads `current_setting('app.bank_ids', true)`, so an absent setting yields an empty array.
 
-**Critical infrastructure requirement (§8 #41).** The API's database login **must be a non-superuser member of `chargeback_app`**. With a superuser or BYPASSRLS login, RLS is silently skipped and every bank's data is visible. The migration cannot enforce this; it is a DevOps action at provisioning.
+**Critical infrastructure requirement (§8 #41).** The API's database login **must be a non-superuser member of `chargeback_app`**. With a superuser or BYPASSRLS login, RLS is silently skipped and every bank's data is visible. The migration cannot enforce this; it is a DevOps action at provisioning. **Guard:** the `row-level-security` readiness check makes `/health/ready` return 503 with such a login (`RowLevelSecurity:RequireEnforcedLogin`, on by default, off in Development).
 
 ## 6. Canonical end-to-end process
 
@@ -432,8 +426,8 @@ The API server never streams file bytes.
 | 38 | `SEND_PORTAL_MESSAGE` permission: currently gated on `VIEW_CASES` for analysts; needs dedicated permission if message access is to be separated from case read access | **Open** |
 | 39 | Zendesk real integration: ticket-creation webhook, field mappings, auth | **Open** — stubbed behind `KNOWN_LIMITATION_ZENDESK_` |
 | 40 | Portal document upload: bank users uploading evidence through Client Portal | **Open** — portal users currently read-only on documents (§8 #31) |
-| 41 | Production database login provisioning: the API login must be a non-superuser member of `chargeback_app`; a superuser silently bypasses RLS | **Open — infrastructure/DevOps action required before any shared environment** |
-| 42 | `domain_events` and `ai_decision_logs` are not protected by RLS (written outside the request scope by the outbox and AI audit; user events have no case). Also: no analyst-only notes resource exists — `portal_messages` is the shared thread (`BANK_USER` / `ANALYST`); private analyst notes would need a separate `case_notes` table | **Open** — do not build analyst-only notes until decided |
+| 41 | Production database login provisioning: the API login must be a non-superuser member of `chargeback_app`; a superuser silently bypasses RLS | **Open — infrastructure/DevOps action required before any shared environment.** Guarded: readiness fails with a bypassing login |
+| 42 | Analyst-only notes: none exist — `portal_messages` is the shared thread (`BANK_USER` / `ANALYST`); private notes would need a separate `case_notes` table. (The RLS gap for `domain_events` / `ai_decision_logs` was closed by migration 0011.) | **Open** — do not build analyst-only notes until decided |
 | 43 | `FILE` in `validActions` requires `SUBMIT_MASTERCOM`, which no role holds, so `FILE` does not appear until the filing phase assigns it | **Resolved — confirmed behaviour; no action needed** |
 | 44 | Bank-facing case status vocabulary for the Client Portal (ADR-0110) | **Open** — the portal shows raw case statuses |
 
@@ -441,7 +435,7 @@ The API server never streams file bytes.
 
 ## 9. Implementation alignment backlog — v1.9 status
 
-**Branch:** `feat/p1-contract-alignment`, with 11 commits and 843 tests. **PR:** `https://github.com/pradeep-padmanabhan/Chargeback-API/compare/main...feat/p1-contract-alignment`
+**Branch:** `feat/p1-contract-alignment`, with 14 commits and 845 tests. **PR:** `https://github.com/pradeep-padmanabhan/Chargeback-API/compare/main...feat/p1-contract-alignment`
 
 | Area | Status |
 |---|---|
@@ -456,7 +450,8 @@ The API server never streams file bytes.
 | Evidence & Documents — migration 0007, 5 endpoints | ✓ Shipped |
 | Admin & Configuration — migration 0008 (`MANAGE_BANK_USERS` Admin-only), bank/user/role endpoints | ✓ Shipped |
 | Client Portal & Communications — migration 0009, portal cases/messages/Zendesk stub, analyst message thread | ✓ Shipped |
-| Row-level security (ADR-0006) — migration 0010, `RlsSetupBehavior`, 12 tables | ✓ Shipped (v1.9) |
+| Row-level security (ADR-0006) — migrations 0010 + 0011, `RlsSetupBehavior`, 14 tables | ✓ Shipped (v1.9 / v1.11) |
+| RLS readiness guard (`/health/ready` fails with a bypassing login) | ✓ Shipped (v1.11) |
 | Production DB login provisioning (non-superuser member of `chargeback_app`) | Infrastructure action required (§8 #41) |
 | `POST /intake/bulk/dry-run` | ⛔ Blocked on §8 #26 |
 

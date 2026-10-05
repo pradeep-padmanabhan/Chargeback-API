@@ -1,6 +1,6 @@
 # Chargeback API — Backend Team Instructions
 
-**Read first:** `docs/CHARGEBACK_FRONTEND_BACKEND_AI_COMMON.md` (the shared common guide, v1.10) before any implementation. This file adds backend-specific scope only — it does not repeat what the common guide already covers. Where an ADR in `docs/decisions/` conflicts with the guide, the guide wins: update the ADR and say so in your report.
+**Read first:** `docs/CHARGEBACK_FRONTEND_BACKEND_AI_COMMON.md` (the shared common guide, v1.11) before any implementation. This file adds backend-specific scope only — it does not repeat what the common guide already covers. Where an ADR in `docs/decisions/` conflicts with the guide, the guide wins: update the ADR and say so in your report.
 
 ## Stack
 
@@ -47,9 +47,9 @@ Authorization's resource lookup (`ResourceBankResolver`) runs under `ElevateToSy
 | Network Filing — Mastercom | 501 stubs marked `KNOWN_LIMITATION_MASTERCOM_` — blocked on external contracts | — |
 | Client Portal & Communications | ✓ Shipped | 0009 |
 | Admin & Configuration | ✓ Shipped | 0008 |
-| Row-level security | ✓ Shipped | 0010 |
+| Row-level security | ✓ Shipped (+ readiness guard) | 0010, 0011 |
 
-## Migrations — approved and shipped (0001–0010)
+## Migrations — approved and shipped (0001–0011)
 
 All scripts live in `db/migrations/` (0001 is `docs/CHARGEBACK_DIAGRAM_BASELINE.sql`). All are idempotent and transactional, and the application never runs them. **None applied to a shared environment yet.**
 
@@ -65,10 +65,11 @@ All scripts live in `db/migrations/` (0001 is `docs/CHARGEBACK_DIAGRAM_BASELINE.
 | 0008 | `admin_user_management` | `MANAGE_BANK_USERS` (**Admin only**); `Bank User` role (BANK type, no permissions); `users.invited_at/deleted_at/deleted_by` |
 | 0009 | `portal_messages` | Baseline `portal_messages`: 1–2000 char CHECK, index, append-only trigger |
 | 0010 | `row_level_security` | RLS enabled + forced on 12 bank-owned tables; policies over `app.scope` / `app.bank_ids`; `chargeback_app` / `chargeback_migrations` roles |
+| 0011 | `rls_events_and_ai_logs` | `bank_id` on `domain_events` and `ai_decision_logs` (backfilled); both under RLS (14 tables) |
 
 New structural changes go in a new numbered migration. The baseline only receives new permission *definitions*.
 
-## Row-level security (migration 0010) — reference
+## Row-level security (migrations 0010–0011) — reference
 
 **Protected tables** (one `bank_scope` policy each, `FORCE ROW LEVEL SECURITY`):
 
@@ -79,18 +80,20 @@ New structural changes go in a new numbered migration. The baseline only receive
 | `triage_results`, `document_slots`, `documents`, `case_review_decisions`, `portal_messages`, `zendesk_tickets`, `mastercom_filings` | `case_id → cases → disputes` |
 | `document_classifications` | `document_id → documents → case` |
 | `filing_api_log` | `filing_id → mastercom_filings → case` |
+| `domain_events`, `ai_decision_logs` | own `bank_id` (0011); the outbox dispatcher and AI audit writer use system scope |
 
 A row is visible when `app.scope = 'system'`, or when its bank is in `app.bank_ids`. Unset settings mean no rows.
 
 **Not protected:**
 - `roles`, `permissions`, `role_permissions`, `users` (the sign-in lookup runs before any bank is known), `user_bank_scopes`, `banks`, `scheme_reason_codes`, `scheme_rule_specs`, `idempotency_keys`, `processed_domain_events`;
-- `domain_events` and `ai_decision_logs`: deferred, because they are written outside the request scope (guide §8 #42).
 
 **Roles:**
 - `chargeback_app`: NOLOGIN, NOBYPASSRLS, with DML grants.
 - `chargeback_migrations`: NOLOGIN, BYPASSRLS.
 
 The API **must** connect as a non-superuser login that is a member of `chargeback_app`; superusers and BYPASSRLS roles skip RLS silently (guide §8 #41: an infrastructure action before any shared environment). `KNOWN_LIMITATION_RLS_PRODUCTION_GRANTS_`: logins, Secrets Manager passwords and the final grant tightening are created at deploy time.
+
+**Readiness guard:** the `row-level-security` health check makes `/health/ready` return 503 when the login is a superuser or has BYPASSRLS, isn't in `chargeback_app`, or fewer than 14 tables are forced. It is controlled by `RowLevelSecurity:RequireEnforcedLogin` (default true; false in Development and the superuser test hosts). Raise `RowLevelSecurityOptions.ProtectedTableCount` whenever a migration protects another table.
 
 **Tests:**
 - `RowLevelSecurityTests`: database level, as a non-superuser `chargeback_app` login.
@@ -101,7 +104,7 @@ The ordinary test hosts connect as the container superuser, so RLS is bypassed t
 
 ## Branch and PR
 
-- **Branch:** `feat/p1-contract-alignment`, 11 commits and 843 tests as of v1.9. PR: `https://github.com/pradeep-padmanabhan/Chargeback-API/compare/main...feat/p1-contract-alignment`.
+- **Branch:** `feat/p1-contract-alignment`, 14 commits and 845 tests as of v1.11. PR: `https://github.com/pradeep-padmanabhan/Chargeback-API/compare/main...feat/p1-contract-alignment`.
 - **New work:** add commits on top while the PR is open; after it merges, branch from `main`.
 
 ## Security rules — absolute, non-negotiable
@@ -126,7 +129,6 @@ The ordinary test hosts connect as the container superuser, so RLS is bypassed t
 | `SUBMIT_MASTERCOM` role assignment | Filing phase (§8 #43: `FILE` stays hidden until then — confirmed) |
 | Cognito invite flow | §8 #34 (infrastructure/security decision) |
 | S3 real config (bucket, KMS, IAM) | §8 #29 (infrastructure) |
-| RLS for `domain_events` / `ai_decision_logs` | §8 #42 (bank column or dispatcher system scope) |
 | Analyst-only case notes | §8 #42 (needs a `case_notes` decision; `portal_messages` is the shared thread) |
 | Production DB login for the API | §8 #41 (infrastructure) |
 
